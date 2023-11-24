@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/*
+*.pyc
+*.pyo
+*.pyd
+
+# Local configuration file
+*.ini
+
+# Compiled source
+*.pyc
+
+# Logs and databases
+*.log
+*.sqlite
+
+# Virtual environment
+venv/
+
+# IDE-specific files
+.idea/
+.vscode/
+*.pycharm/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
