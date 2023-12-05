@@ -1,8 +1,13 @@
-import os
 from kubernetes import client, config
 
 from Config import Config
 from Config import Node
+from Config import Pod
+from typing import Dict, List
+import time
+import json
+import schedule
+from datetime import datetime, timezone, timedelta
 
 
 class KubernetesClient:
@@ -25,8 +30,36 @@ class KubernetesClient:
                         status = 'Ready'
             nodes.append(
                 Node(i.metadata.name, i.metadata.annotations['flannel.alpha.coreos.com/public-ip'], i.metadata.name,
-                     i.spec.pod_cidr, status))
+                     i.spec.pod_cidr, status, i.metadata.labels['apps.openyurt.io/nodepool']
+                     ))
         return nodes
+
+    def get_node_center(self) -> Dict[str, str]:
+        nodes = self.get_nodes()
+        return {node.node_name: node.center for node in nodes}
+
+    def get_node_ns_pods(self, node, namespaces):
+        converted_pods = []
+        pods = []
+        for namespace in namespaces:
+            field_selector = f"spec.nodeName={node.node_name},metadata.namespace={namespace}"
+            pods.append(self.core_api.list_pod_for_all_namespaces(field_selector=field_selector))
+
+        # 打印 Pod 信息
+        for pod_item in pods:
+            for pod in pod_item.items:
+                converted_pods.append(
+                    Pod(pod.spec.node_name, pod.metadata.namespace, pod.status.host_ip, pod.status.pod_ip,
+                        pod.metadata.name, node.center))
+        return converted_pods
+
+    def get_pod_node(self, namespaces: List) -> Dict[str, Pod]:
+        pod_node: Dict[str, Pod] = {}
+        nodes = self.get_nodes()
+        for node in nodes:
+            converted_pods: [Pod] = self.get_node_ns_pods(node, namespaces)
+            pod_node.update({pod.name: pod.node for pod in converted_pods})
+        return pod_node
 
     # Get all microservices
     def get_svcs(self):
@@ -89,6 +122,29 @@ class KubernetesClient:
     #     os.system('kubectl apply -f %s > temp.log' % self.k8s_yaml)
 
 
+def collect_pod_topology(begin_timestamp, dir, client: KubernetesClient, namespaces, interval=5):
+    now = int(time.time())
+    time_schedule: int
+    if begin_timestamp > now:
+        time_schedule = begin_timestamp
+    elif begin_timestamp == now:
+        time_schedule = begin_timestamp + interval
+    elif begin_timestamp < now:
+        time_schedule = now + (interval - ((now - begin_timestamp) % interval))
+    date = datetime.fromtimestamp(time_schedule, tz=timezone(timedelta(hours=8)))
+    date_string = date.strftime('%Y-%m-%d %H:%M:%S')
+
+    def job():
+        print("Pod Topology Job is running...")
+        with open(dir + '/pod_topology.result', "a") as output_file:
+            print(datetime.now().strptime() + ':\n' + json.dumps(client.get_pod_node(namespaces)), file=output_file)
+
+    schedule.every(interval).seconds.at(date_string).do(job).tag('Pod Topology Job')
+
+
 if __name__ == '__main__':
-    client = KubernetesClient(Config())
+    config_local = Config()
+    config_local.k8s_config = '../local-config'
+    client = KubernetesClient(config_local)
     print(client.get_nodes())
+    # print(client.get_node_ns_pods("izbp16opgy3xucvexwqp9dz", ["bookinfo"]))

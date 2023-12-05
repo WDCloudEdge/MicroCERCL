@@ -18,6 +18,9 @@ from drain3.template_miner_config import TemplateMinerConfig
 # persistence_type = "KAFKA"
 persistence_type = "FILE"
 
+# folder_path = 'data/normal/test/tcpdump_logs'
+folder_path = 'data/normal/20231120/tcpdump_logs'
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(message)s')
 
@@ -29,7 +32,7 @@ if persistence_type == "KAFKA":
 elif persistence_type == "FILE":
     from drain3.file_persistence import FilePersistence
 
-    persistence = FilePersistence("data/normal/20231120/tcpdump_logs/drain3_state.bin")
+    persistence = FilePersistence(folder_path + "/drain3_state.bin")
 
 elif persistence_type == "REDIS":
     from drain3.redis_persistence import RedisPersistence
@@ -86,10 +89,11 @@ class TCP_Pair(Pair):
 
 
 class UDP_Pair(Pair):
-    def __init__(self, caller: str, callee: str, protocol: str, length: int, time):
+    def __init__(self, caller: str, callee: str, protocol: str, length: int, time, combine_window):
         super().__init__(caller, callee, protocol)
         self.length = length
         self.timestamp = datetime.strptime(time, "%Y-%m-%d %H:%M:%S.%f").timestamp()
+        self.combine_window = combine_window
 
     def reverse_key(self):
         return self.callee + '-' + self.caller + '-' + self.protocol
@@ -106,11 +110,6 @@ template_miner = TemplateMiner(persistence, config)
 print(f"Drain3 started with '{persistence_type}' persistence")
 print(f"{len(config.masking_instructions)} masking instructions are in use")
 print(f"Starting training mode. Reading from std-in ('q' to finish)")
-
-folder_path = 'data/normal/test/tcpdump_logs'
-
-
-# folder_path = 'data/normal/20231120/tcpdump_logs'
 
 
 def get_dir_files(folder_path):
@@ -136,6 +135,7 @@ file_paths = get_dir_files(folder_path)
 pair_candidate = {}
 udp_pair_candidate = {}
 length_pair_candidate = {}
+combine_window = 2
 # 打开文件，'r' 表示只读模式
 for file_path in file_paths:
     with open(file_path, 'r') as file:
@@ -147,6 +147,9 @@ for file_path in file_paths:
             # print(log_line.strip())  # strip() 用于移除行末尾的换行符
             if log_line == 'q':
                 break
+            # Redis协议RESP去尾
+            if 'RESP' in log_line:
+                log_line = log_line[:log_line.rfind(': RESP')]
             result = template_miner.add_log_message(log_line)
             result_json = json.dumps(result)
             # print(result_json)
@@ -194,28 +197,31 @@ for file_path in file_paths:
                         pair_length = length_pair_candidate.get(seq_tcp_pair.base_key(), 0)
                         length_pair_candidate[seq_tcp_pair.base_key()] = pair_length + int(seq_tcp_pair.length)
                     if length and protocol == 'UDP':
-                        udp_pair = UDP_Pair(caller_ip, callee_ip, protocol, length, '2023-11-20 ' + timestamp)
+                        udp_pair = UDP_Pair(caller_ip, callee_ip, protocol, length, '2023-11-20 ' + timestamp,
+                                            combine_window)
                         seq_udp_pair = pair_candidate.get(udp_pair.reverse_key(), None)
-                        # todo 乱序成对UDP权重有误，例如：
-                        # 13:11:50.162743 IP 10.244.13.59.50679 > 10.244.12.152.45414: UDP, length 674
-                        # 13:11:50.178542 IP 10.244.13.59.50679 > 10.244.12.152.45414: UDP, length 342
-                        # 13:11:50.184329 IP 10.244.12.152.45414 > 10.244.13.59.50679: UDP, length 66
-                        # 13:11:50.199678 IP 10.244.12.152.45414 > 10.244.13.59.50679: UDP, length 66
                         # udp没有匹配成功
                         if not seq_udp_pair or not seq_udp_pair.within(udp_pair.timestamp):
                             old_udp_pair = pair_candidate.get(udp_pair.base_key(), None)
-                            # 覆盖之前相同key的pair，需要统计上一次是否匹配成功
+                            # 根据combine_window判断覆盖/合并之前相同key的pair
                             if old_udp_pair:
                                 pair_count = udp_pair_candidate.get(old_udp_pair.base_key(), 1)
                                 if not old_udp_pair.get_pair():
-                                    udp_pair_candidate[old_udp_pair.base_key()] = pair_count - 1
+                                    # 覆盖
+                                    if old_udp_pair.combine_window <= 1:
+                                        udp_pair_candidate[old_udp_pair.base_key()] = pair_count - 1
+                                    # 合并
+                                    else:
+                                        udp_pair.combine_window = old_udp_pair.combine_window - 1
+                                        udp_pair.length = int(old_udp_pair.length) + int(udp_pair.length)
                             pair_candidate[udp_pair.base_key()] = udp_pair
-                        else:
+                        # 匹配成功且还没有统计过
+                        elif not seq_udp_pair.get_pair():
                             seq_udp_pair.pair()
                             new_pair_count = udp_pair_candidate.get(seq_udp_pair.base_key(), 0)
                             udp_pair_candidate[seq_udp_pair.base_key()] = new_pair_count + 1
                             pair_length = length_pair_candidate.get(seq_udp_pair.base_key(), 0)
-                            length_pair_candidate[seq_udp_pair.base_key()] = pair_length + int(length)
+                            length_pair_candidate[seq_udp_pair.base_key()] = pair_length + int(seq_udp_pair.length)
 
 print("Training done. Mined clusters:")
 for cluster in template_miner.drain.clusters:
@@ -225,13 +231,24 @@ for cluster in template_miner.drain.clusters:
 nodes = KubernetesClient(Config()).get_nodes()
 node_pair = {}
 length_node_pair = {}
+pod_pair = {}
+pod_port_pair = {}
 for v in pair_candidate:
+    pair = pair_candidate[v]
     with open(folder_path + '/network_pair.result', "a") as output_file:
         if udp_pair_candidate.get(v, 0) > 1:
-            pair_candidate[v].pair()
-        print(v + ':' + str(pair_candidate[v].get_pair()) + ':' + str(length_pair_candidate.get(v, 0)),
+            pair.pair()
+        print(v + ':' + str(pair.get_pair()) + ':' + str(length_pair_candidate.get(v, 0)),
               file=output_file)
-    pair = pair_candidate[v]
+        # 组装相同pod的流量
+        pod_pair_key = pair.caller_ip + '-' + pair.callee_ip + '-' + pair.protocol
+        pod_pair_length = pod_pair.get(pod_pair_key, 0)
+        pod_pair[pod_pair_key] = pod_pair_length + length_pair_candidate.get(v, 0)
+        # 组装相同pod:port的流量
+        pod_port_pair_key = pair.caller + '-' + pair.callee + '-' + pair.protocol
+        pod_port_pair_length = pod_port_pair.get(pod_port_pair_key, 0)
+        pod_port_pair[pod_port_pair_key] = pod_port_pair_length + length_pair_candidate.get(v, 0)
+
     if pair.get_pair():
         caller_node = None
         callee_node = None
@@ -249,6 +266,14 @@ for v in pair_candidate:
         node_pair[new_pair.base_key()] = pair_count + 1
         pair_length = length_node_pair.get(new_pair.base_key(), 0)
         length_node_pair[new_pair.base_key()] = pair_length + length_pair_candidate.get(v, 0)
+for pod in pod_pair:
+    with open(folder_path + '/pod_network_pair.result', "a") as output_file:
+        print(pod + ':' + str(pod_pair[pod] > 0) + ':' + str(pod_pair[pod]),
+              file=output_file)
+for pod_port in pod_port_pair:
+    with open(folder_path + '/pod_port_network_pair.result', "a") as output_file:
+        print(pod_port + ':' + str(pod_port_pair[pod_port] > 0) + ':' + str(pod_port_pair[pod_port]),
+              file=output_file)
 for p in node_pair:
     with open(folder_path + '/topology_pair.result', "a") as output_file:
         print(p + ':' + str(node_pair[p]) + ':' + str(length_node_pair.get(p, 0)), file=output_file)

@@ -1,6 +1,5 @@
 import time
 
-
 class Config:
     def __init__(self):
         self.namespace = 'bookinfo'
@@ -11,6 +10,7 @@ class Config:
         self.interval = 10 * 60
         # duration related to interval
         self.duration = self.interval
+        self.window_size = 60
         self.start = int(round((time.time() - self.duration)))
         self.end = int(round(time.time()))
 
@@ -28,11 +28,25 @@ class Config:
         # kubernetes
         self.k8s_config = 'local-config'
 
+        # others
+        self.dir = 'test-20231204'
+
 
 class Node:
-    def __init__(self, name, ip, node_name, cni_ip, status):
+    def __init__(self, name, ip, node_name, cni_ip, status, center):
         self.name = name
         self.ip = ip
         self.node_name = node_name
         self.cni_ip = cni_ip
         self.status = status
+        self.center = center
+
+
+class Pod:
+    def __init__(self, node, namespace, host_ip, ip, name, center):
+        self.node = node
+        self.namespace = namespace
+        self.host_ip = host_ip
+        self.ip = ip
+        self.name = name
+        self.center = center
