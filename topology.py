@@ -13,9 +13,9 @@ if __name__ == "__main__":
     # namespaces = ['bookinfo', 'hipster', 'hipster2', 'sock-shop', 'horsecoder-test', 'horsecoder-minio']
     namespaces = ['bookinfo']
     config = Config()
-
-    global_now_time = 1701660720
-    global_end_time = 1701660900
+    coll = False
+    global_now_time = 1701761640
+    global_end_time = 1701761820
     now = int(time.time())
     if global_now_time > now:
         sys.exit("begin time is after now time")
@@ -25,7 +25,6 @@ if __name__ == "__main__":
     folder = '.'
     graphs_time_window: Dict[str, nx.DiGraph] = {}
     base_dir = './data/' + str(config.dir)
-    coll = False
     for ns in namespaces:
         config.namespace = ns
         config.svcs.clear()

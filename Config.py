@@ -29,7 +29,7 @@ class Config:
         self.k8s_config = 'local-config'
 
         # others
-        self.dir = 'test-20231204'
+        self.dir = 'test-20231205'
 
 
 class Node:
