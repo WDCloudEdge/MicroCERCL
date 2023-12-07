@@ -8,7 +8,7 @@ from os.path import dirname
 from util.KubernetesClient import KubernetesClient
 from Config import Config
 from util.utils import *
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from drain3 import TemplateMiner
 from drain3.template_miner_config import TemplateMinerConfig
@@ -19,7 +19,9 @@ from drain3.template_miner_config import TemplateMinerConfig
 persistence_type = "FILE"
 
 # folder_path = 'data/normal/test/tcpdump_logs'
-folder_path = 'data/normal/20231120/tcpdump_logs'
+# folder_path = 'data/normal/20231120/tcpdump_logs'
+# folder_path = 'data/test-20231207/abnormal'
+folder_path = 'data/test-20231207/normal'
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(message)s')
@@ -45,6 +47,28 @@ elif persistence_type == "REDIS":
                                    redis_key="drain3_state_key")
 else:
     persistence = None
+
+
+def timestamp_convert_nano(time):
+    return int(time * 1e6)
+
+
+def timestamp_convert(time):
+    return datetime.strptime(time, "%Y-%m-%d %H:%M:%S.%f").timestamp()
+
+
+def timestamp_convert_back(time):
+    seconds = int(time // 1e6)
+    microseconds = int(time % 1e6)
+
+    # 将时间戳转换为datetime对象
+    utc_datetime = datetime.utcfromtimestamp(seconds)
+    utc_datetime = utc_datetime.replace(microsecond=microseconds, tzinfo=timezone.utc)
+
+    # 设置目标时区为北京时区（东八区）
+    beijing_timezone = timezone(timedelta(hours=8))
+    beijing_datetime = utc_datetime.astimezone(beijing_timezone)
+    return beijing_datetime
 
 
 class Pair:
@@ -75,11 +99,13 @@ class Node_Pair(Pair):
 
 
 class TCP_Pair(Pair):
-    def __init__(self, caller: str, callee: str, protocol: str, is_seq_or_ack: bool, key_num: int, length: int = 0):
+    def __init__(self, caller: str, callee: str, protocol: str, is_seq_or_ack: bool, key_num: int, time,
+                 length: int = 0):
         super().__init__(caller, callee, protocol)
         self.is_seq_or_ack = is_seq_or_ack
         self.key_num = key_num
         self.length = length
+        self.timestamp = timestamp_convert(time)
 
     def base_key(self):
         return super().base_key() + '-' + self.key_num
@@ -92,7 +118,7 @@ class UDP_Pair(Pair):
     def __init__(self, caller: str, callee: str, protocol: str, length: int, time, combine_window):
         super().__init__(caller, callee, protocol)
         self.length = length
-        self.timestamp = datetime.strptime(time, "%Y-%m-%d %H:%M:%S.%f").timestamp()
+        self.timestamp = timestamp_convert(time)
         self.combine_window = combine_window
 
     def reverse_key(self):
@@ -136,6 +162,9 @@ pair_candidate = {}
 udp_pair_candidate = {}
 length_pair_candidate = {}
 combine_window = 2
+min_timestamp = None
+max_timestamp = None
+date_prefix = '2023-12-07 '
 # 打开文件，'r' 表示只读模式
 for file_path in file_paths:
     with open(file_path, 'r') as file:
@@ -184,12 +213,19 @@ for file_path in file_paths:
                         length = value.split(',')[1].strip().split(' ')[1]
                     elif 'TIMESTAMP' == param.mask_name:
                         timestamp = param.value
+                        t = timestamp_convert(date_prefix + timestamp)
+                        if min_timestamp is None:
+                            min_timestamp = max_timestamp = t
+                        elif min_timestamp is not None and int(t) > int(max_timestamp):
+                            max_timestamp = t
                 if caller_ip and callee_ip and protocol:
                     if seq_ack_num:
-                        tcp_pair = TCP_Pair(caller_ip, callee_ip, protocol, True, seq_ack_num, length)
+                        tcp_pair = TCP_Pair(caller_ip, callee_ip, protocol, True, seq_ack_num,
+                                            date_prefix + timestamp, length)
                         pair_candidate[tcp_pair.base_key()] = tcp_pair
                     if ack_num:
-                        tcp_pair = TCP_Pair(caller_ip, callee_ip, protocol, False, ack_num, length)
+                        tcp_pair = TCP_Pair(caller_ip, callee_ip, protocol, False, ack_num, date_prefix + timestamp,
+                                            length)
                         seq_tcp_pair = pair_candidate.get(tcp_pair.reverse_key(), None)
                         if not seq_tcp_pair:
                             continue
@@ -197,7 +233,7 @@ for file_path in file_paths:
                         pair_length = length_pair_candidate.get(seq_tcp_pair.base_key(), 0)
                         length_pair_candidate[seq_tcp_pair.base_key()] = pair_length + int(seq_tcp_pair.length)
                     if length and protocol == 'UDP':
-                        udp_pair = UDP_Pair(caller_ip, callee_ip, protocol, length, '2023-11-20 ' + timestamp,
+                        udp_pair = UDP_Pair(caller_ip, callee_ip, protocol, length, date_prefix + timestamp,
                                             combine_window)
                         seq_udp_pair = pair_candidate.get(udp_pair.reverse_key(), None)
                         # udp没有匹配成功
@@ -229,54 +265,86 @@ for cluster in template_miner.drain.clusters:
         print(cluster, file=output_file)
 
 nodes = KubernetesClient(Config()).get_nodes()
-node_pair = {}
-length_node_pair = {}
-pod_pair = {}
-pod_port_pair = {}
-for v in pair_candidate:
-    pair = pair_candidate[v]
-    with open(folder_path + '/network_pair.result', "a") as output_file:
-        if udp_pair_candidate.get(v, 0) > 1:
-            pair.pair()
-        print(v + ':' + str(pair.get_pair()) + ':' + str(length_pair_candidate.get(v, 0)),
-              file=output_file)
-        # 组装相同pod的流量
-        pod_pair_key = pair.caller_ip + '-' + pair.callee_ip + '-' + pair.protocol
-        pod_pair_length = pod_pair.get(pod_pair_key, 0)
-        pod_pair[pod_pair_key] = pod_pair_length + length_pair_candidate.get(v, 0)
-        # 组装相同pod:port的流量
-        pod_port_pair_key = pair.caller + '-' + pair.callee + '-' + pair.protocol
-        pod_port_pair_length = pod_port_pair.get(pod_port_pair_key, 0)
-        pod_port_pair[pod_port_pair_key] = pod_port_pair_length + length_pair_candidate.get(v, 0)
+statistics_time_window = 1e6 * 1 * 1
+min_timestamp = timestamp_convert_nano(min_timestamp)
+max_timestamp = timestamp_convert_nano(max_timestamp)
 
-    if pair.get_pair():
-        caller_node = None
-        callee_node = None
-        for node in nodes:
-            if pair.caller_ip == node.ip or \
-                    ip_2_subnet(pair.caller_ip, node.cni_ip[node.cni_ip.rfind('/') + 1:]) == \
-                    node.cni_ip[:node.cni_ip.rfind('/')]:
-                caller_node = node.node_name
-            if pair.callee_ip == node.ip or \
-                    ip_2_subnet(pair.callee_ip, node.cni_ip[node.cni_ip.rfind('/') + 1:]) == \
-                    node.cni_ip[:node.cni_ip.rfind('/')]:
-                callee_node = node.node_name
-        new_pair = Node_Pair(caller_node, callee_node)
-        pair_count = node_pair.get(new_pair.base_key(), 0)
-        node_pair[new_pair.base_key()] = pair_count + 1
-        pair_length = length_node_pair.get(new_pair.base_key(), 0)
-        length_node_pair[new_pair.base_key()] = pair_length + length_pair_candidate.get(v, 0)
-for pod in pod_pair:
-    with open(folder_path + '/pod_network_pair.result', "a") as output_file:
-        print(pod + ':' + str(pod_pair[pod] > 0) + ':' + str(pod_pair[pod]),
-              file=output_file)
-for pod_port in pod_port_pair:
-    with open(folder_path + '/pod_port_network_pair.result', "a") as output_file:
-        print(pod_port + ':' + str(pod_port_pair[pod_port] > 0) + ':' + str(pod_port_pair[pod_port]),
-              file=output_file)
-for p in node_pair:
-    with open(folder_path + '/topology_pair.result', "a") as output_file:
-        print(p + ':' + str(node_pair[p]) + ':' + str(length_node_pair.get(p, 0)), file=output_file)
+
+def get_statistics_time_window(min_timestamp, max_timestamp, statistics_time_window):
+    time_window_list = []
+    if max_timestamp - min_timestamp <= statistics_time_window:
+        time_window_list.append(max_timestamp)
+        return time_window_list
+    temp_t = min_timestamp + statistics_time_window
+    while temp_t < max_timestamp:
+        time_window_list.append(int(temp_t))
+        temp_t += statistics_time_window
+    time_window_list.append(max_timestamp)
+    return time_window_list
+
+
+time_window_list = get_statistics_time_window(min_timestamp, max_timestamp, statistics_time_window)
+
+for t_window in time_window_list:
+    node_pair = {}
+    length_node_pair = {}
+    pod_pair = {}
+    pod_port_pair = {}
+    for v in pair_candidate:
+        pair = pair_candidate[v]
+        with open(folder_path + '/network_pair-' + str(timestamp_convert_back(t_window)) + '.result',
+                  "a") as output_file:
+            if timestamp_convert_nano(pair.timestamp) > t_window:
+                continue
+            if udp_pair_candidate.get(v, 0) > 1:
+                pair.pair()
+            print(v + ':' + str(pair.get_pair()) + ':' + str(length_pair_candidate.get(v, 0)),
+                  file=output_file)
+            # 组装相同pod的流量
+            pod_pair_key = pair.caller_ip + '-' + pair.callee_ip + '-' + pair.protocol
+            pod_pair_length = pod_pair.get(pod_pair_key, 0)
+            pod_pair[pod_pair_key] = pod_pair_length + length_pair_candidate.get(v, 0)
+            # 组装相同pod:port的流量
+            pod_port_pair_key = pair.caller + '-' + pair.callee + '-' + pair.protocol
+            pod_port_pair_length = pod_port_pair.get(pod_port_pair_key, 0)
+            pod_port_pair[pod_port_pair_key] = pod_port_pair_length + length_pair_candidate.get(v, 0)
+
+            caller_node = None
+            callee_node = None
+            for node in nodes:
+                if pair.caller_ip == node.ip or \
+                        ip_2_subnet(pair.caller_ip, node.cni_ip[node.cni_ip.rfind('/') + 1:]) == \
+                        node.cni_ip[:node.cni_ip.rfind('/')]:
+                    caller_node = node.node_name
+                if pair.callee_ip == node.ip or \
+                        ip_2_subnet(pair.callee_ip, node.cni_ip[node.cni_ip.rfind('/') + 1:]) == \
+                        node.cni_ip[:node.cni_ip.rfind('/')]:
+                    callee_node = node.node_name
+            new_pair = Node_Pair(caller_node, callee_node)
+            if new_pair.base_key() not in node_pair:
+                node_pair[new_pair.base_key()] = 0
+            if new_pair.base_key() not in length_node_pair:
+                length_node_pair[new_pair.base_key()] = 0
+            if pair.get_pair():
+                pair_count = node_pair.get(new_pair.base_key(), 0)
+                node_pair[new_pair.base_key()] = pair_count + 1
+                pair_length = length_node_pair.get(new_pair.base_key(), 0)
+                length_node_pair[new_pair.base_key()] = pair_length + length_pair_candidate.get(v, 0)
+    for pod in pod_pair:
+        with open(folder_path + '/pod_network_pair-' + str(timestamp_convert_back(t_window)) + '.result',
+                  "a") as output_file:
+            print(pod + ':' + str(pod_pair[pod] > 0) + ':' + str(pod_pair[pod]),
+                  file=output_file)
+    for pod_port in pod_port_pair:
+        with open(folder_path + '/pod_port_network_pair-' + str(timestamp_convert_back(t_window)) + '.result',
+                  "a") as output_file:
+            print(pod_port + ':' + str(pod_port_pair[pod_port] > 0) + ':' + str(pod_port_pair[pod_port]),
+                  file=output_file)
+    for p in node_pair:
+        with open(folder_path + '/topology_pair-' + str(timestamp_convert_back(t_window)) + '.result',
+                  "a") as output_file:
+            print(p + ':' + str(node_pair[p] != 0 and length_node_pair[p] != 0) + ':' + str(
+                node_pair[p]) + ':' + str(length_node_pair.get(p, 0)), file=output_file)
 
 # print(f"Starting inference mode, matching to pre-trained clusters. Input log lines or 'q' to finish")
 # while True:

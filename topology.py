@@ -13,9 +13,8 @@ if __name__ == "__main__":
     # namespaces = ['bookinfo', 'hipster', 'hipster2', 'sock-shop', 'horsecoder-test', 'horsecoder-minio']
     namespaces = ['bookinfo']
     config = Config()
-    coll = False
-    global_now_time = 1701761640
-    global_end_time = 1701761820
+    global_now_time = 1701927060
+    global_end_time = 1701927540
     now = int(time.time())
     if global_now_time > now:
         sys.exit("begin time is after now time")
@@ -39,12 +38,12 @@ if __name__ == "__main__":
             if config.end > end_time:
                 config.end = end_time
             print('第' + str(count) + '次获取 [' + config.namespace + '] 数据')
-            graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, data_folder, config.window_size, now_time, coll)
+            graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, data_folder, config.window_size, now_time, config.collect)
             graphs_time_window = {**graphs_time_window, **graphs_ns_time_window}
             now_time += config.duration + 1
             config.pods.clear()
             count += 1
-    MetricCollector.collect_node(config, base_dir + '/node', coll)
+    MetricCollector.collect_node(config, base_dir + '/node', config.collect)
     # 赋权ns子图
     for time_window in graphs_time_window:
         graph: nx.DiGraph = graphs_time_window[time_window]

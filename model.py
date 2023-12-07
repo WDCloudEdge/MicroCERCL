@@ -6,135 +6,24 @@ import dgl.nn.pytorch as dglnn
 import dgl.function as fn
 from graph import EdgeType, HeteroWithGraphIndex, NodeType
 from typing import Dict
+from model_aggregate import AggrUnsupervisedGNN
+from model_time_series import TimeUnsupervisedGNN
 
 
-class HGraphConvLayer(nn.Module):
-    def __init__(self, hidden_size, out_channel, svc_feat_num, instance_feat_num, node_feat_num,
-                 svc_num, instance_num, node_num, total_node_num):
-        super(HGraphConvLayer, self).__init__()
-        self.svc_feat_num = svc_feat_num
-        self.instance_feat_num = instance_feat_num
-        self.node_feat_num = node_feat_num
-        self.svc_num = svc_num
-        self.instance_num = instance_num
-        self.node_num = node_num
-        self.total_node_num = total_node_num
-        self.conv = dglnn.HeteroGraphConv({
-            EdgeType.SVC_CALL_EDGE.value: dglnn.GraphConv(self.svc_feat_num, hidden_size),
-            EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, hidden_size),
-            EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, hidden_size)},
-            aggregate='sum')
-        self.linear_map = {}
-        self.linear_map[NodeType.NODE.value] = nn.Linear(self.node_num, out_channel)
-        self.linear_map[NodeType.SVC.value] = nn.Linear(self.svc_num, out_channel)
-        self.linear_map[NodeType.POD.value] = nn.Linear(self.instance_num, out_channel)
-        self.linear_map['total'] = nn.Linear(self.total_node_num, out_channel)
-
-    def forward(self, graph, feat_dict):
-        dict = self.conv(graph, feat_dict)
-        return self.linear_map['total'](th.cat([nn.LeakyReLU(negative_slope=0.01)(dict[key]) for key in dict], dim=0).T).T
-        # # The input is a dictionary of node features for each type
-        # funcs = {}
-        # for srctype, etype, dsttype in G.canonical_etypes:
-        #     # 计算每一类etype的 W_r * h
-        #     Wh = self.weight[etype](feat_dict[srctype])
-        #     # Save it in graph for message passing
-        #     G.nodes[srctype].data['Wh_%s' % etype] = Wh
-        #     # 消息函数 copy_u: 将源节点的特征聚合到'm'中; reduce函数: 将'm'求均值赋值给 'h'
-        #     funcs[etype] = (fn.copy_u('Wh_%s' % etype, 'm'), fn.mean('m', 'h'))
-        # # Trigger message passing of multiple types.
-        # # The first argument is the message passing functions for each relation.
-        # # The second one is the type wise reducer, could be "sum", "max",
-        # # "min", "mean", "stack"
-        # G.multi_update_all(funcs, 'sum')
-        # # return the updated node feature dictionary
-        # return {ntype : G.nodes[ntype].data['h'] for ntype in G.ntypes}
-
-
-class HGraphConvWindow(nn.Module):
-    def __init__(self, input_size, hidden_size, graph: HeteroWithGraphIndex):
-        super(HGraphConvWindow, self).__init__()
-        self.graph = graph
-        self.hidden_size = hidden_size
-        self.input_size = input_size
-        self.window_simple_size = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[1]
-        self.lstm_layer = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=2,
-                                  batch_first=True)
-        self.hGraph_conv_layer_list = []
-        self.svc_feat_num = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2]
-        self.instance_feat_num = graph.hetero_graph.nodes[NodeType.POD.value].data['feat'].shape[2]
-        self.node_feat_num = graph.hetero_graph.nodes[NodeType.NODE.value].data['feat'].shape[2]
-        self.svc_num = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[0]
-        self.instance_num = graph.hetero_graph.nodes[NodeType.POD.value].data['feat'].shape[0]
-        self.node_num = graph.hetero_graph.nodes[NodeType.NODE.value].data['feat'].shape[0]
-        for i in range(self.window_simple_size):
-            self.hGraph_conv_layer_list.append(
-                HGraphConvLayer(self.input_size, self.hidden_size, self.svc_feat_num, self.instance_feat_num,
-                                self.node_feat_num, self.svc_num, self.instance_num, self.node_num, graph.hetero_graph.num_nodes()))
-        # self.conv = dglnn.HeteroGraphConv({
-        #     EdgeType.SVC_CALL.value: dglnn.GraphConv(self.svc_feat_num, 64),
-        #     EdgeType.INSTANCE_NODE.value: dglnn.GraphConv(self.instance_feat_num, 64),
-        #     EdgeType.NODE_INSTANCE.value: dglnn.SAGEConv(self.node_feat_num, 64, 'mean')},
-        #     aggregate='sum')
-
-    def forward(self):
-        input_data_list = []
-
-        def get_data_at_time_index(n, data):
-            data_at_time_index = []
-            for index in range(data.shape[0]):
-                data_at_time_index.append(data[index][n])
-            return th.stack(data_at_time_index, dim=1).T
-
-        for i, layer in enumerate(self.hGraph_conv_layer_list):
-            feat_dict = {
-                NodeType.NODE.value: get_data_at_time_index(i, self.graph.hetero_graph.nodes[NodeType.NODE.value].data[
-                    'feat']),
-                NodeType.SVC.value: get_data_at_time_index(i, self.graph.hetero_graph.nodes[NodeType.SVC.value].data[
-                    'feat']),
-                NodeType.POD.value: get_data_at_time_index(i, self.graph.hetero_graph.nodes[NodeType.POD.value].data[
-                    'feat'])
-            }
-            single_graph_feat = layer(self.graph.hetero_graph, feat_dict)
-            input_data_list.append(single_graph_feat)
-        return self.lstm_layer(th.stack(input_data_list, dim=0))[0]
-
-
-class HGraphConvWindows(nn.Module):
-    def __init__(self, out_channel, hidden_channel, graphs: Dict[str, HeteroWithGraphIndex]):
-        super(HGraphConvWindows, self).__init__()
-        self.hidden_size = hidden_channel
-        self.window_size = len(graphs)
-        # todo 结合图结构/指标时序特征
-        time_sorted = sorted(graphs.keys())
-        self.lstm_layer = nn.LSTM(input_size=self.hidden_size ** 2, hidden_size=self.hidden_size, num_layers=2,
-                                  batch_first=True)
-        self.time_metrics_layer_list = []
-        for time in time_sorted:
-            self.time_metrics_layer_list.append(HGraphConvWindow(32, self.hidden_size, graphs[time]))
-        self.linear1 = nn.Linear(self.hidden_size, out_channel)
-
-    def forward(self):
-        input_data_list = []
-        for layer in self.time_metrics_layer_list:
-            single_window_feat = layer()
-            input_data_list.append(single_window_feat.reshape(single_window_feat.shape[0], -1))
-        return self.linear1(self.lstm_layer(th.cat(input_data_list, dim=0))[0])
-
-
-# 2. 定义无监督的图神经网络模型
+# 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
 class UnsupervisedGNN(nn.Module):
     def __init__(self, in_channels, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex]):
         super(UnsupervisedGNN, self).__init__()
-        self.conv1 = HGraphConvWindows(out_channel=out_channels, hidden_channel=hidden_size, graphs=graphs)
+        self.aggr_conv = AggrUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs)
+        self.time_conv = TimeUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs)
 
     def forward(self):
-        x = self.conv1()
-        return x
+        aggr_feat, aggr_index = self.aggr_conv()
+        time_feat = self.time_conv()
+        return aggr_feat, aggr_index, time_feat
 
-    def loss(self, feat):
-        scores = self.forward(nodes, metric, is_node_train_index)
-        return self.xent(scores, labels.squeeze())
+    def loss(self, aggr_feat, aggr_index, time_feat, time_index):
+        return th.mean([self.aggr_conv.loss(aggr_feat, aggr_index), self.time_conv.loss(time_feat, time_index)])
 
 
 def train(graphs: Dict[str, HeteroWithGraphIndex]):
@@ -145,10 +34,11 @@ def train(graphs: Dict[str, HeteroWithGraphIndex]):
     # 4. 训练模型
     for epoch in range(1000):
         optimizer.zero_grad()
-        output = model()
+        aggr_feat, aggr_index, time_feat = model()
 
         # 使用节点的 L2 范数作为无监督的目标函数
-        loss = th.norm(output, dim=1).mean()
+        # loss = th.norm(output, dim=1).mean()
+        loss = model.loss(aggr_feat, aggr_index, time_feat, [])
 
         loss.backward()
         optimizer.step()

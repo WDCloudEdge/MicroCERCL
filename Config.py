@@ -2,6 +2,7 @@ import time
 
 class Config:
     def __init__(self):
+        self.collect = False
         self.namespace = 'bookinfo'
         self.nodes = None
         self.svcs = set()
@@ -29,7 +30,7 @@ class Config:
         self.k8s_config = 'local-config'
 
         # others
-        self.dir = 'test-20231205'
+        self.dir = 'test-20231207'
 
 
 class Node:
