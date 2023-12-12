@@ -53,7 +53,7 @@ def df_time_limit(df, begin_timestamp, end_timestamp):
             break
     if max_timestamp < int(end_timestamp):
         end_index = df.shape[0]
-    df = df.loc[begin_index:end_index]
+    df = df.loc[begin_index:end_index - 1]
     return df
 
 

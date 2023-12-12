@@ -1,6 +1,7 @@
 import os
 from Config import Config
 import pandas as pd
+import numpy as np
 from util.PrometheusClient import PrometheusClient
 from util.KubernetesClient import KubernetesClient
 import networkx as nx
@@ -133,7 +134,7 @@ def collect_call_latency(config: Config, _dir: str):
     [handle(result, call_df, 'p99') for result in responses_99]
 
     path = os.path.join(_dir, 'call.csv')
-    call_df.to_csv(path, index=False, mode='a')
+    call_df.fillna(0).to_csv(path, index=False, mode='a')
 
 
 # Get the response time for the microservices
@@ -200,58 +201,49 @@ def collect_resource_metric(config: Config, _dir: str):
 
 
 # Get the number of pods for all microservices
-def collect_pod_num(config: Config, _dir: str):
-    instance_df = pd.DataFrame()
-    prom_util = PrometheusClient(config)
-    # qps_sql = 'count(container_cpu_usage_seconds_total{namespace="%s", container!~"POD|istio-proxy"}) by (container)' % (config.yaml.namespace)
-    # def handle(result, instance_df):
-    #     if 'container' in result['metric']:
-    #         name = result['metric']['container'] + '&count'
-    #         values = result['values']
-    #         values = list(zip(*values))
-    #         if 'timestamp' not in instance_df:
-    #             timestamp = values[0]
-    #             instance_df['timestamp'] = timestamp
-    #             instance_df['timestamp'] = instance_df['timestamp'].astype('datetime64[s]')
-    #         metric = values[1]
-    #         instance_df[name] = pd.Series(metric)
-    #         instance_df[name] = instance_df[name].astype('float64')
-    qps_sql = 'count(kube_pod_info{namespace="%s"}) by (created_by_name)' % config.namespace
-    response = prom_util.execute_prom(config.prom_range_url_node, qps_sql)
-
-    for result in response:
-        if 'created_by_name' in result['metric']:
-            # name = result['metric']['created_by_name'][:result['metric']['created_by_name'].rfind('-')] + '&count'
-            name = result['metric']['created_by_name']
-            values = result['values']
-            values = list(zip(*values))
-            deployment_df = pd.DataFrame()
-            timestamp = values[0]
-            deployment_df['timestamp'] = timestamp
-            deployment_df['timestamp'] = deployment_df['timestamp'].astype('datetime64[s]')
-            metric = pd.Series(values[1])
-            deployment_df[name] = metric
-            deployment_df = deployment_df.fillna(0)
-            deployment_df[name] = deployment_df[name].astype('float64')
-            if instance_df.empty:
-                instance_df = deployment_df
-            else:
-                instance_df = pd.merge(instance_df, deployment_df, on='timestamp', how='outer')
-            instance_df = instance_df.fillna(0)
-
-    instance_num_df = pd.DataFrame()
-    for column in instance_df.columns:
-        if column == 'timestamp':
-            continue
-        name = column[:column.rfind('-')] + '&count'
-        if name not in instance_num_df.columns:
-            instance_num_df[name] = instance_df[column]
-        else:
-            instance_num_df[name] = instance_num_df[name] + instance_df[column]
-    instance_num_df['timestamp'] = instance_df['timestamp']
-
+def collect_pod_num(config: Config, _dir: str, coll: bool):
     path = os.path.join(_dir, 'instances_num.csv')
-    instance_num_df.to_csv(path, index=False, mode='a')
+    if coll:
+        instance_df = pd.DataFrame()
+        prom_util = PrometheusClient(config)
+        pod_info_sql = 'count(kube_pod_info{namespace="%s"}) by (created_by_name)' % config.namespace
+        response = prom_util.execute_prom(config.prom_range_url_node, pod_info_sql)
+
+        for result in response:
+            if 'created_by_name' in result['metric']:
+                name = result['metric']['created_by_name']
+                values = result['values']
+                values = list(zip(*values))
+                deployment_df = pd.DataFrame()
+                timestamp = values[0]
+                deployment_df['timestamp'] = timestamp
+                deployment_df['timestamp'] = deployment_df['timestamp'].astype('datetime64[s]')
+                metric = pd.Series(values[1])
+                deployment_df[name] = metric
+                deployment_df = deployment_df.fillna(0)
+                deployment_df[name] = deployment_df[name].astype('float64')
+                if instance_df.empty:
+                    instance_df = deployment_df
+                else:
+                    instance_df = pd.merge(instance_df, deployment_df, on='timestamp', how='outer')
+                instance_df = instance_df.fillna(0)
+
+        instance_num_df = pd.DataFrame()
+        for column in instance_df.columns:
+            if column == 'timestamp':
+                continue
+            name = column[:column.rfind('-')] + '&count'
+            if name not in instance_num_df.columns:
+                instance_num_df[name] = instance_df[column]
+            else:
+                instance_num_df[name] = instance_num_df[name] + instance_df[column]
+        instance_num_df['timestamp'] = instance_df['timestamp'].astype('datetime64[s]')
+
+        instance_num_df.to_csv(path, index=False, mode='a')
+    else:
+        instance_num_df = pd.read_csv(path)
+    return instance_num_df
+
 
 
 # get qps for microservice
@@ -290,18 +282,42 @@ def collect_svc_metric(config: Config, _dir: str):
 
 # 收集容器CPU, memory, network
 def collect_ctn_metric(config: Config, _dir: str):
-    df = pd.DataFrame()
+    pod_df = pd.DataFrame()
     prom_util = PrometheusClient(config)
-    prom_cpu_sql = 'sum(rate(container_cpu_usage_seconds_total{namespace=\'%s\',container!~\'POD|istio-proxy|\',pod!~\'jaeger.*\'}[1m])* 1000)  by (pod, instance,container)' % config.namespace
 
-    response = prom_util.execute_prom(config.prom_range_url_node, prom_cpu_sql)
+    pod_info_sql = 'kube_pod_info{namespace=\'%s\'}' % config.namespace
+    response = prom_util.execute_prom(config.prom_range_url_node, pod_info_sql)
     for result in response:
         pod_name = result['metric']['pod']
-        prom_memory_sql = 'sum(container_memory_working_set_bytes{namespace=\'%s\',pod="%s"}) by(pod, instance)  / 1000000' % (
-            config.namespace, pod_name)
-        prom_network_sql = 'sum(rate(container_network_transmit_packets_total{namespace=\"%s\", pod="%s"}[1m])) * sum(rate(container_network_transmit_packets_total{namespace=\"%s\", pod="%s"}[1m]))' % (
-            config.namespace, pod_name, config.namespace, pod_name)
+        values = result['values']
+        values = list(zip(*values))
+        container_df = pd.DataFrame()
+        timestamp = values[0]
+        metric = pd.Series(values[1])
+        container_df['timestamp'] = timestamp
+        container_df['timestamp'] = container_df['timestamp'].astype('datetime64[s]')
+        container_df[pod_name] = metric
+        container_df = container_df.fillna(0)
+        container_df[pod_name] = container_df[pod_name].astype('float64')
+        if pod_df.empty:
+            pod_df = container_df
+        elif pod_name in pod_df.columns:
+            pod_df = pod_df.set_index('timestamp').combine_first(container_df.set_index('timestamp')).reset_index()
+            for i in range(len(container_df[pod_name])):
+                pod_df_index = pod_df.loc[pod_df['timestamp'] == container_df['timestamp'][i]].index[0]
+                pod_df.at[pod_df_index, pod_name] = 1 if pod_df[pod_name][pod_df_index] == 0 and container_df[pod_name][i] == 1 else pod_df[pod_name][pod_df_index]
+        else:
+            pod_df = pd.merge(pod_df, container_df, on='timestamp', how='outer')
+        pod_df = pod_df.fillna(0)
 
+    prom_cpu_sql = 'sum(rate(container_cpu_usage_seconds_total{namespace=\'%s\',container!~\'POD|istio-proxy|\',pod!~\'jaeger.*\'}[1m])* 1000)  by (pod, instance, container)' % config.namespace
+    prom_memory_sql = 'sum(container_memory_working_set_bytes{namespace=\'%s\',container!~\'POD|istio-proxy|\',pod!~\'jaeger.*\'}) by(pod, instance, container)  / 1000000' % (
+        config.namespace)
+    response = prom_util.execute_prom(config.prom_range_url_node, prom_cpu_sql)
+    cpu_rename = {}
+    cpu_df = pd.DataFrame()
+    for result in response:
+        pod_name = result['metric']['pod']
         config.pods.add(pod_name)
         values = result['values']
         values = list(zip(*values))
@@ -311,35 +327,53 @@ def collect_ctn_metric(config: Config, _dir: str):
         container_df['timestamp'] = container_df['timestamp'].astype('datetime64[s]')
         metric = pd.Series(values[1])
         col_name = pod_name + '_cpu'
-        container_df[col_name] = metric
+        cpu_rename[pod_name] = col_name
+        container_df[pod_name] = metric
         container_df = container_df.fillna(0)
-        container_df[col_name] = container_df[col_name].astype('float64')
-        if df.empty:
-            df = container_df
+        container_df[pod_name] = container_df[pod_name].astype('float64')
+        if cpu_df.empty:
+            cpu_df = container_df
         else:
-            df = pd.merge(df, container_df, on='timestamp', how='outer')
-        df = df.fillna(0)
+            cpu_df = pd.merge(cpu_df, container_df, on='timestamp', how='outer')
+        cpu_df = cpu_df.fillna(0)
+    cpu_df = cpu_df.mask((cpu_df == 0) & (pod_df == 0), -1)
+    # mask = np.logical_and(cpu_df.values == 0, pod_df.values == 0)
+    # cpu_df[mask] = -1
+    cpu_df.rename(columns=cpu_rename, inplace=True)
 
+    mem_rename = {}
+    mem_df = pd.DataFrame()
+    response = prom_util.execute_prom(config.prom_range_url_node, prom_memory_sql)
+    for result in response:
+        pod_name = result['metric']['pod']
+        config.pods.add(pod_name)
         container_df = pd.DataFrame()
-        response = prom_util.execute_prom(config.prom_range_url_node, prom_memory_sql)
-        values = response[0]['values']
+        values = result['values']
         values = list(zip(*values))
         timestamp = values[0]
         container_df['timestamp'] = timestamp
         container_df['timestamp'] = container_df['timestamp'].astype('datetime64[s]')
         metric = pd.Series(values[1])
         col_name = pod_name + '_memory'
-        container_df[col_name] = metric
+        mem_rename[pod_name] = col_name
+        container_df[pod_name] = metric
         container_df = container_df.fillna(0)
-        container_df[col_name] = container_df[col_name].astype('float64')
-        if df.empty:
-            df = container_df
+        container_df[pod_name] = container_df[pod_name].astype('float64')
+        if mem_df.empty:
+            mem_df = container_df
         else:
-            df = pd.merge(df, container_df, on='timestamp', how='outer')
-        df = df.fillna(0)
+            mem_df = pd.merge(mem_df, container_df, on='timestamp', how='outer')
+        mem_df = mem_df.fillna(0)
+    mem_df = mem_df.mask((mem_df == 0) & (pod_df == 0), -1)
+    mem_df.rename(columns=mem_rename, inplace=True)
 
-        container_df = pd.DataFrame()
+    net_rename = {}
+    net_df = pd.DataFrame()
+    for pod_name in config.pods:
+        prom_network_sql = 'sum(rate(container_network_transmit_packets_total{namespace=\"%s\", pod="%s"}[1m])) * sum(rate(container_network_transmit_packets_total{namespace=\"%s\", pod="%s"}[1m]))' % (
+            config.namespace, pod_name, config.namespace, pod_name)
         response = prom_util.execute_prom(config.prom_range_url_node, prom_network_sql)
+        container_df = pd.DataFrame()
         values = response[0]['values']
         values = list(zip(*values))
         timestamp = values[0]
@@ -347,15 +381,20 @@ def collect_ctn_metric(config: Config, _dir: str):
         container_df['timestamp'] = container_df['timestamp'].astype('datetime64[s]')
         metric = pd.Series(values[1])
         col_name = pod_name + '_network'
-        container_df[col_name] = metric
+        net_rename[pod_name] = col_name
+        container_df[pod_name] = metric
         container_df = container_df.fillna(0)
-        container_df[col_name] = container_df[col_name].astype('float64')
-        if df.empty:
-            df = container_df
+        container_df[pod_name] = container_df[pod_name].astype('float64')
+        if net_df.empty:
+            net_df = container_df
         else:
-            df = pd.merge(df, container_df, on='timestamp', how='outer')
-        df = df.fillna(0)
+            net_df = pd.merge(net_df, container_df, on='timestamp', how='outer')
+        net_df = net_df.fillna(0)
+    net_df = net_df.mask((net_df == 0) & (pod_df == 0), -1)
+    net_df.rename(columns=net_rename, inplace=True)
 
+    df = pd.merge(cpu_df, mem_df, on='timestamp', how='outer')
+    df = pd.merge(df, net_df, on='timestamp', how='outer')
     path = os.path.join(_dir, 'instance.csv')
     df.to_csv(path, index=False, mode='a')
     return df
@@ -488,7 +527,7 @@ def collect(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
         collect_succeess_rate(config, _dir)
         collect_svc_qps(config, _dir)
         collect_svc_metric(config, _dir)
-        collect_pod_num(config, _dir)
+        # collect_pod_num(config, _dir)
         collect_ctn_metric(config, _dir)
     return graphs
 
@@ -508,11 +547,27 @@ def collect_graph_single(config: Config, _dir: str):
     collect_graph(config, _dir, True)
 
 
-def collect_and_build_graphs(config: Config, _dir: str, window_size, begin_timestamp, coll: bool) -> Dict[
+def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_window_list, window_size, coll: bool) -> Dict[
     str, nx.DiGraph]:
     print('collect graphs')
     if not os.path.exists(_dir):
         os.makedirs(_dir)
     graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll)
-    graphs_time_window = combine_timestamps_graph(graphs, begin_timestamp, config.namespace, window_size)
+    graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list, window_size)
     return graphs_time_window
+
+
+def collect_pod_num_and_build_graph_change_windows(config: Config, _dir: str, coll: bool) -> List[
+    str]:
+    print('collect pod numbers and build graph change windows')
+    time_change = []
+    if not os.path.exists(_dir):
+        os.makedirs(_dir)
+    instance_num_df = collect_pod_num(config, _dir, coll)
+    for index, row in instance_num_df.iterrows():
+        if index == 0 or (index >= 1 and not row.drop('timestamp').equals(instance_num_df.iloc[index - 1].drop('timestamp'))):
+            time_change.append(str(row['timestamp']))
+    last_timestamp = str(instance_num_df.iloc[instance_num_df.shape[0] - 1]['timestamp'])
+    if last_timestamp not in time_change:
+        time_change.append(last_timestamp)
+    return time_change
