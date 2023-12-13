@@ -38,7 +38,7 @@ class GraphIndex:
 
 
 class HeteroWithGraphIndex:
-    def __init__(self, hetero_graph: DGLHeteroGraph, hetero_graph_index, n_graph: nx.DiGraph,
+    def __init__(self, hetero_graph: DGLHeteroGraph, hetero_graph_index: GraphIndex, n_graph: nx.DiGraph,
                  center_hetero_graph: Dict[str, DGLHeteroGraph], center_type_index,
                  anomaly_index, anomaly_time_series_index):
         self.hetero_graph = hetero_graph

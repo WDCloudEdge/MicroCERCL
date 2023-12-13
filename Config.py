@@ -2,6 +2,7 @@ import time
 
 class Config:
     def __init__(self):
+        self.train = False
         self.collect = False
         self.namespace = 'bookinfo'
         self.nodes = None

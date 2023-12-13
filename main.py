@@ -116,4 +116,4 @@ if __name__ == "__main__":
                                                        graphs_combine}
         # 转化为dgl构建图网络栈
         hetero_graphs_combine: Dict[str, HeteroWithGraphIndex] = get_hg(graphs_combine, graphs_combine_index, anomalies, graphs_anomaly_time_series_index)
-        train(hetero_graphs_combine)
+        train(hetero_graphs_combine, base_dir, config.train)

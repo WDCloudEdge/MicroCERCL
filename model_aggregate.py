@@ -99,7 +99,6 @@ class AggrHGraphConvWindow(nn.Module):
             }
             single_graph_feat = layer(self.graph, feat_dict)
             input_data_list.append(single_graph_feat.T)
-        # todo 找到不同网段的中心点（宿主机节点：已；异常点：未）索引
         center_node_index: Dict[str, Set[str]] = {}
         graphs_anomaly_node_index = []
         for center in self.graph.center_type_index:
@@ -137,7 +136,6 @@ class AggrHGraphConvWindows(nn.Module):
         node_index = [0] * len(self.time_metrics_layer_list)
         for index, layer in enumerate(self.time_metrics_layer_list):
             single_window_feat, graphs_center_node_index, graphs_anomaly_node_index = layer()
-            # input_data_list.append(single_window_feat.T.reshape(single_window_feat.shape[0], -1))
             input_data_list.append(single_window_feat)
             if single_window_feat.shape[1] < shortest_time:
                 shortest_time = single_window_feat.shape[1]

@@ -12,7 +12,7 @@ from model_time_series import TimeUnsupervisedGNN
 
 # 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
 class UnsupervisedGNN(nn.Module):
-    def __init__(self, in_channels, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex]):
+    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex]):
         super(UnsupervisedGNN, self).__init__()
         self.aggr_conv = AggrUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs)
         self.time_conv = TimeUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs)
@@ -28,30 +28,56 @@ class UnsupervisedGNN(nn.Module):
         return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index) + self.time_conv.loss(time_feat, time_index)
 
 
-def train(graphs: Dict[str, HeteroWithGraphIndex]):
-    # 3. 初始化模型和优化器
-    model = UnsupervisedGNN(in_channels=5, out_channels=1, hidden_size=64, graphs=graphs)
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool = False):
+    model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs)
+    if is_train:
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-    # 4. 训练模型
-    for epoch in range(1000):
-        optimizer.zero_grad()
-        aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
+        for epoch in range(1000):
+            optimizer.zero_grad()
+            aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
 
-        # 使用节点的 L2 范数作为无监督的目标函数
-        # loss = th.norm(output, dim=1).mean()
-        loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list)
+            loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list)
 
-        loss.backward()
-        optimizer.step()
+            loss.backward()
+            optimizer.step()
 
-        if epoch % 10 == 0:
-            print(f'Epoch {epoch}, Loss: {loss.item()}')
-
-    # 5. 获取学到的节点表示
+            if epoch % 10 == 0:
+                print(f'Epoch {epoch}, Loss: {loss.item()}')
+        torch.save(model.state_dict(), dir + '/model_weights.pth')
+    else:
+        model.load_state_dict(torch.load(dir + '/model_weights.pth'))
     with th.no_grad():
         model.eval()
-        node_embeddings = model().detach().numpy()
-
-    # 6. 在学到的节点表示上执行中心性，图聚类，子图划分，因果推断等操作，进一步分析根因
-    print(node_embeddings)
+        output = model()[0]
+        output = output.reshape(output.shape[0], -1)
+        time_sorted = sorted(graphs.keys())
+        total_num_list = []
+        total_index_node = {}
+        for idx, time in enumerate(time_sorted):
+            graph = graphs[time]
+            total_num = graph.hetero_graph.num_nodes()
+            total_num_list.append(total_num)
+            node_num = graph.hetero_graph.num_nodes(NodeType.NODE.value)
+            svc_num = graph.hetero_graph.num_nodes(NodeType.SVC.value)
+            pod_num = graph.hetero_graph.num_nodes(NodeType.POD.value)
+            graph_index = graph.hetero_graph_index
+            if idx == 0:
+                padding_num = 0
+            else:
+                padding_num = sum(total_num_list[:idx])
+            for i in range(total_num):
+                if i < node_num:
+                    total_index_node[i + padding_num] = [key for key, value in graph_index.node_index.items() if value == i][0]
+                elif node_num <= i < node_num + pod_num:
+                    total_index_node[i + padding_num] = [key for key, value in graph_index.pod_index.items() if value == i - node_num][0]
+                elif node_num + pod_num <= i < total_num:
+                    total_index_node[i + padding_num] = [key for key, value in graph_index.svc_index.items() if value == i - node_num - pod_num][0]
+        output = output.T.numpy().flatten().tolist()
+        output_score = {}
+        for idx, score in enumerate(output):
+            s = output_score.get(total_index_node[idx], 0)
+            output_score[total_index_node[idx]] = s + score
+        sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1]))
+        for key, value in list(sorted_dict.items())[:10]:
+            print(f"{key}: {value}")
