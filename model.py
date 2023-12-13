@@ -19,14 +19,13 @@ class UnsupervisedGNN(nn.Module):
 
     def forward(self):
         aggr_feat, aggr_center_index, aggr_anomaly_index = self.aggr_conv()
-        time_feat = self.time_conv()
-        return aggr_feat, aggr_center_index, aggr_anomaly_index, time_feat
+        time_series_feat, anomaly_time_series_index_list = self.time_conv()
+        return aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list
 
     def loss(self, aggr_feat, aggr_center_index, aggr_anomaly_index, time_feat, time_index):
         if len(time_index) == 0:
             return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index)
-        return th.mean(th.tensor([self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index),
-                        self.time_conv.loss(time_feat, time_index)]))
+        return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index) + self.time_conv.loss(time_feat, time_index)
 
 
 def train(graphs: Dict[str, HeteroWithGraphIndex]):
@@ -37,11 +36,11 @@ def train(graphs: Dict[str, HeteroWithGraphIndex]):
     # 4. 训练模型
     for epoch in range(1000):
         optimizer.zero_grad()
-        aggr_feat, aggr_center_index, aggr_anomaly_index, time_feat = model()
+        aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
 
         # 使用节点的 L2 范数作为无监督的目标函数
         # loss = th.norm(output, dim=1).mean()
-        loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_feat, [])
+        loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list)
 
         loss.backward()
         optimizer.step()

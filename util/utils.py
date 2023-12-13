@@ -1,4 +1,5 @@
 from sklearn import preprocessing
+from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 from datetime import datetime
 import pytz
@@ -36,6 +37,13 @@ def normalize_dataframe(data):
     normalized_df['timestamp'] = data['timestamp']
 
     return normalized_df
+
+
+def normalize_series(data):
+    scaler = MinMaxScaler()
+    normalized_data = scaler.fit_transform(data.values.reshape(-1, 1))
+    normalized_series = pd.Series(normalized_data.flatten())
+    return normalized_series
 
 
 def df_time_limit(df, begin_timestamp, end_timestamp):
