@@ -61,7 +61,6 @@ if __name__ == "__main__":
             config.start = time_pair[0]
             config.end = time_pair[1]
             print('第' + str(count) + '次获取 [' + config.namespace + '] 数据')
-            # todo 在有扩缩容时重新构建图，而不是根据固定窗口
             graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, data_folder, topology_change_time_window_list,
                                                                              config.window_size, config.collect)
             graphs_time_window[str(time_pair[0]) + '-' + str(time_pair[1])] = {**graphs_time_window, **graphs_ns_time_window}

@@ -33,7 +33,7 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool
     if is_train:
         optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-        for epoch in range(1000):
+        for epoch in range(100):
             optimizer.zero_grad()
             aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
 

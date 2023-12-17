@@ -100,16 +100,29 @@ class AggrHGraphConvWindow(nn.Module):
             single_graph_feat = layer(self.graph, feat_dict)
             input_data_list.append(single_graph_feat.T)
         center_node_index: Dict[str, Set[str]] = {}
-        graphs_anomaly_node_index = []
+        graphs_anomaly_node_index = {}
         for center in self.graph.center_type_index:
             center_node_index[center] = self.graph.center_type_index[center][NodeType.NODE.value]
         graphs_center_node_index = copy.deepcopy(center_node_index)
         node_num = len(self.graph.hetero_graph_index.index[NodeType.NODE.value])
         instance_num = len(self.graph.hetero_graph_index.index[NodeType.POD.value])
-        if NodeType.POD.value in self.graph.anomaly_index:
-            graphs_anomaly_node_index.extend([instance_index + node_num for instance_index in self.graph.anomaly_index[NodeType.POD.value]])
-        if NodeType.SVC.value in self.graph.anomaly_index:
-            graphs_anomaly_node_index.extend([svc_index + node_num + instance_num for svc_index in self.graph.anomaly_index[NodeType.SVC.value]])
+
+        # todo 以异常为中心，前继传播
+
+        def graph_anomaly_index(graphs_anomaly_node_index, anomaly, anomaly_map ,node_num, instance_num):
+            for node_type in anomaly_map:
+                graph_index_by_anomaly = graphs_anomaly_node_index.get(anomaly, [])
+                if node_type == NodeType.NODE.value:
+                    graph_index_by_anomaly.extend(node_index for node_index in anomaly_map[node_type])
+                elif node_type == NodeType.POD.value:
+                    graph_index_by_anomaly.extend(pod_index + node_num for pod_index in anomaly_map[node_type])
+                elif node_type == NodeType.SVC.value:
+                    graph_index_by_anomaly.extend(
+                        svc_index + node_num + instance_num for svc_index in anomaly_map[node_type])
+                graphs_anomaly_node_index[anomaly] = graph_index_by_anomaly
+
+        for anomaly in self.graph.anomaly_index:
+            graph_anomaly_index(graphs_anomaly_node_index, anomaly, self.graph.anomaly_index[anomaly], node_num, instance_num)
         return self.lstm_layer(th.stack(input_data_list, dim=1).T)[0], graphs_center_node_index, graphs_anomaly_node_index
 
 
@@ -155,9 +168,19 @@ class AggrHGraphConvWindows(nn.Module):
             for center in center_index_map:
                 for idx, idx_origin in enumerate(center_index_map[center]):
                     center_index_map[center][idx] = idx_origin + append_index
-        for index, graphs_anomaly_node_index in enumerate(window_graphs_anomaly_node_index):
-            window_graphs_anomaly_node_index[index] = [idx + node_num[index] for idx in graphs_anomaly_node_index]
-        return self.linear1(self.lstm_layer(th.cat(input_data_list, dim=0))[0]), window_graphs_center_node_index, window_graphs_anomaly_node_index
+        for index, anomaly_dict in enumerate(window_graphs_anomaly_node_index):
+            for anomaly in anomaly_dict:
+                anomaly_dict[anomaly] = [idx + node_num[index] for idx in anomaly_dict[anomaly]]
+            window_graphs_anomaly_node_index[index] = anomaly_dict
+        window_graphs_anomaly_node_index_combine = {}
+        for d in window_graphs_anomaly_node_index:
+            for ano, idx_list in d.items():
+                if ano in window_graphs_anomaly_node_index_combine:
+                    window_graphs_anomaly_node_index_combine[ano].extend(idx_list)
+                else:
+                    window_graphs_anomaly_node_index_combine[ano] = idx_list
+        return self.linear1(self.lstm_layer(th.cat(input_data_list, dim=0))[
+                                0]), window_graphs_center_node_index, window_graphs_anomaly_node_index_combine
 
 
 class AggrUnsupervisedGNN(nn.Module):
@@ -184,6 +207,6 @@ class AggrUnsupervisedGNN(nn.Module):
             sum_criterion += self.criterion(aggr_center, torch.zeros_like(aggr_center))
         for anomaly in aggr_anomaly_index:
             if len(anomaly) > 0:
-                aggr_anomaly = aggr_feat[anomaly]
+                aggr_anomaly = aggr_feat[aggr_anomaly_index[anomaly]]
                 sum_criterion += self.criterion(aggr_anomaly, torch.zeros_like(aggr_anomaly))
         return sum_criterion

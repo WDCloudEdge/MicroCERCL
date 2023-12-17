@@ -1,7 +1,7 @@
 import os
-from Config import Config
+from Config import Config, Node
 import pandas as pd
-import numpy as np
+from util.utils import time_string_2_timestamp
 from util.PrometheusClient import PrometheusClient
 from util.KubernetesClient import KubernetesClient
 import networkx as nx
@@ -9,63 +9,88 @@ from typing import Dict, List, Tuple
 from graph import combine_timestamps_graph, NodeType
 
 
-# todo 异常pod包含未能成功上报指标数据的pod
-def collect_graph(config: Config, _dir: str, output: bool) -> Dict[str, nx.DiGraph]:
+def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
     graphs_at_timestamp: Dict[str, nx.DiGraph] = {}
     graph_df = pd.DataFrame(columns=['source', 'destination'])
-    prom_util = PrometheusClient(config)
-    prom_sql = 'sum(istio_tcp_received_bytes_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace
-    results = prom_util.execute_prom(config.prom_range_url, prom_sql)
-
-    prom_sql = 'sum(istio_requests_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace
-    results = results + prom_util.execute_prom(config.prom_range_url, prom_sql)
     svc_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
-    for result in results:
-        metric = result['metric']
-        source = metric['source_workload']
-        destination = metric['destination_workload']
-        config.svcs.add(source)
-        config.svcs.add(destination)
-        values = result['values']
-        values = list(zip(*values))
-        for timestamp in values[0]:
-            graph_df = graph_df.append({'source': source, 'destination': destination, 'timestamp': timestamp},
-                                       ignore_index=True)
-            t_list = svc_timestamp_map.get(str(timestamp), [])
-            t_list.append((source, destination))
-            svc_timestamp_map[str(timestamp)] = t_list
-
-    prom_sql = 'sum(container_cpu_usage_seconds_total{namespace=\"%s\", container!~\'POD|istio-proxy\'}) by (instance, pod)' % config.namespace
-    results = prom_util.execute_prom(config.prom_range_url_node, prom_sql)
-
     pod_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
-    for result in results:
-        metric = result['metric']
-        if 'pod' in metric:
-            source = metric['pod']
-            config.pods.add(source)
-            destination = metric['instance']
-            # if node ip
-            if ":" in destination:
-                destination = destination.split(":")[0]
-                for node in KubernetesClient(config).get_nodes():
-                    if node.ip == destination:
-                        destination = node.name
-                        break
+    path = os.path.join(_dir, 'graph.csv')
+    k8s_nodes = KubernetesClient(config).get_nodes()
+    if collect:
+        prom_util = PrometheusClient(config)
+        prom_sql = 'sum(istio_tcp_received_bytes_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace
+        results = prom_util.execute_prom(config.prom_range_url, prom_sql)
+
+        prom_sql = 'sum(istio_requests_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace
+        results = results + prom_util.execute_prom(config.prom_range_url, prom_sql)
+        for result in results:
+            metric = result['metric']
+            source = metric['source_workload']
+            destination = metric['destination_workload']
+            config.svcs.add(source)
+            config.svcs.add(destination)
             values = result['values']
             values = list(zip(*values))
             for timestamp in values[0]:
                 graph_df = graph_df.append({'source': source, 'destination': destination, 'timestamp': timestamp},
                                            ignore_index=True)
-                t_list = pod_timestamp_map.get(str(timestamp), [])
+                t_list = svc_timestamp_map.get(str(timestamp), [])
                 t_list.append((source, destination))
-                pod_timestamp_map[str(timestamp)] = t_list
+                svc_timestamp_map[str(timestamp)] = t_list
 
-    if output:
+        prom_sql = 'sum(container_cpu_usage_seconds_total{namespace=\"%s\", container!~\'POD|istio-proxy\'}) by (instance, pod)' % config.namespace
+        results = prom_util.execute_prom(config.prom_range_url_node, prom_sql)
+
+        for result in results:
+            metric = result['metric']
+            if 'pod' in metric:
+                source = metric['pod']
+                config.pods.add(source)
+                destination = metric['instance']
+                # if node ip
+                if ":" in destination:
+                    destination = destination.split(":")[0]
+                    for node in k8s_nodes:
+                        if node.ip == destination:
+                            destination = node.name
+                            break
+                values = result['values']
+                values = list(zip(*values))
+                for timestamp in values[0]:
+                    graph_df = graph_df.append({'source': source, 'destination': destination, 'timestamp': timestamp},
+                                               ignore_index=True)
+                    t_list = pod_timestamp_map.get(str(timestamp), [])
+                    t_list.append((source, destination))
+                    pod_timestamp_map[str(timestamp)] = t_list
+
         graph_df['timestamp'] = graph_df['timestamp'].astype('datetime64[s]')
         graph_df = graph_df.sort_values(by='timestamp', ascending=True)
-        path = os.path.join(_dir, 'graph.csv')
         graph_df.to_csv(path, index=False, mode='a')
+
+    else:
+        graph_df = pd.read_csv(path)
+        # graph_df['timestamp'] = pd.to_datetime(graph_df['timestamp'])
+        grouped = graph_df.groupby('timestamp')
+
+        def is_pod_node(row, nodes: List[Node]):
+            for n in nodes:
+                if row['destination'] == n.node_name:
+                    return True
+            return False
+        for group_name, group_data in grouped:
+            timestamp_str = str(time_string_2_timestamp(str(group_name)))
+            for idx, row in group_data.iterrows():
+                if is_pod_node(row, k8s_nodes):
+                    t_list = pod_timestamp_map.get(timestamp_str, [])
+                    t_list.append((row['source'], row['destination']))
+                    pod_timestamp_map[timestamp_str] = t_list
+                    config.pods.add(row['source'])
+                else:
+                    t_list = svc_timestamp_map.get(timestamp_str, [])
+                    t_list.append((row['source'], row['destination']))
+                    svc_timestamp_map[timestamp_str] = t_list
+                    config.svcs.add(row['source'])
+                    config.svcs.add(row['destination'])
 
     combine_timestamp = pod_timestamp_map.copy()
     combine_timestamp.update(svc_timestamp_map.copy())

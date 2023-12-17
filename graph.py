@@ -267,9 +267,19 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph):
     for anomaly in anomalies:
         if anomaly in graph.nodes:
             type = graph.nodes[anomaly]['type']
-            anomaly_list = anomaly_type_index.get(type, [])
-            anomaly_list.append(index.index[type][anomaly])
-            anomaly_type_index[type] = anomaly_list
+            anomaly_key = type + '-' + anomaly
+            anomaly_type_map = anomaly_type_index.get(anomaly_key, {})
+            anomaly_type_list = anomaly_type_map.get(type, [])
+            anomaly_type_list.append(index.index[type][anomaly])
+            anomaly_type_map[type] = anomaly_type_list
+            # 找到异常传播前继节点
+            predecessors = list(graph.predecessors(anomaly))
+            for n in predecessors:
+                type = graph.nodes[n]['type']
+                anomaly_type_list = anomaly_type_map.get(type, [])
+                anomaly_type_list.append(index.index[type][n])
+                anomaly_type_map[type] = anomaly_type_list
+            anomaly_type_index[anomaly_key] = anomaly_type_map
     return anomaly_type_index
 
 
