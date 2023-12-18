@@ -10,6 +10,26 @@ from model_aggregate import AggrUnsupervisedGNN
 from model_time_series import TimeUnsupervisedGNN
 
 
+class EarlyStopping:
+    def __init__(self, patience=5, delta=1e-6):
+        self.patience = patience
+        self.delta = delta
+        self.counter = 0
+        self.best_loss = float('inf')
+        self.early_stop = False
+
+    def __call__(self, val_loss):
+        if val_loss >= self.best_loss:
+            self.counter = 0
+        elif val_loss < self.best_loss - self.delta:
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+
+
 # 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
 class UnsupervisedGNN(nn.Module):
     def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex]):
@@ -31,9 +51,10 @@ class UnsupervisedGNN(nn.Module):
 def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool = False):
     model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs)
     if is_train:
+        early_stopping = EarlyStopping(patience=5, delta=1e-6)
         optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-        for epoch in range(100):
+        for epoch in range(500):
             optimizer.zero_grad()
             aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
 
@@ -41,9 +62,13 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool
 
             loss.backward()
             optimizer.step()
+            early_stopping(loss)
 
             if epoch % 10 == 0:
                 print(f'Epoch {epoch}, Loss: {loss.item()}')
+            if early_stopping.early_stop:
+                print(f"Early stopping with epoch: {epoch}, loss: {loss.item()}")
+                break
         torch.save(model.state_dict(), dir + '/model_weights.pth')
     else:
         model.load_state_dict(torch.load(dir + '/model_weights.pth'))

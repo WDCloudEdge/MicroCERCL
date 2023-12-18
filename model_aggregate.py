@@ -31,14 +31,14 @@ class AggrHGraphConvLayer(nn.Module):
         self.linear_map[NodeType.SVC.value] = nn.Linear(self.svc_num, out_channel)
         self.linear_map[NodeType.POD.value] = nn.Linear(self.instance_num, out_channel)
         self.linear_map['total'] = nn.Linear(self.total_node_num, out_channel)
-        self.activation = nn.LeakyReLU(negative_slope=0.01)
+        self.activation = nn.LeakyReLU(negative_slope=1e-2)
 
     def forward(self, graph: HeteroWithGraphIndex, feat_dict):
         dict = self.conv(graph.hetero_graph, feat_dict)
-        node_feat = self.activation(dict[NodeType.NODE.value])
-        instance_feat = self.activation(dict[NodeType.POD.value])
-        svc_feat = self.activation(dict[NodeType.SVC.value])
-        return th.cat([node_feat, instance_feat, svc_feat], dim=0)
+        node_feat = dict[NodeType.NODE.value]
+        instance_feat = dict[NodeType.POD.value]
+        svc_feat = dict[NodeType.SVC.value]
+        return self.activation(th.cat([node_feat, instance_feat, svc_feat], dim=0))
         # # The input is a dictionary of node features for each type
         # funcs = {}
         # for srctype, etype, dsttype in G.canonical_etypes:
@@ -107,8 +107,6 @@ class AggrHGraphConvWindow(nn.Module):
         node_num = len(self.graph.hetero_graph_index.index[NodeType.NODE.value])
         instance_num = len(self.graph.hetero_graph_index.index[NodeType.POD.value])
 
-        # todo 以异常为中心，前继传播
-
         def graph_anomaly_index(graphs_anomaly_node_index, anomaly, anomaly_map ,node_num, instance_num):
             for node_type in anomaly_map:
                 graph_index_by_anomaly = graphs_anomaly_node_index.get(anomaly, [])
@@ -138,7 +136,7 @@ class AggrHGraphConvWindows(nn.Module):
         self.time_metrics_layer_list = []
         for time in time_sorted:
             self.time_metrics_layer_list.append(AggrHGraphConvWindow(32, self.hidden_size, graphs[time]))
-        self.linear1 = nn.Linear(self.hidden_size, out_channel)
+        self.linear = nn.Linear(self.hidden_size, out_channel)
 
     def forward(self):
         input_data_list = []
@@ -179,7 +177,7 @@ class AggrHGraphConvWindows(nn.Module):
                     window_graphs_anomaly_node_index_combine[ano].extend(idx_list)
                 else:
                     window_graphs_anomaly_node_index_combine[ano] = idx_list
-        return self.linear1(self.lstm_layer(th.cat(input_data_list, dim=0))[
+        return self.linear(self.lstm_layer(th.cat(input_data_list, dim=0))[
                                 0]), window_graphs_center_node_index, window_graphs_anomaly_node_index_combine
 
 

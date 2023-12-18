@@ -262,7 +262,7 @@ def get_edge_type(u_type, v_type):
         pass
 
 
-def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph):
+def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = False):
     anomaly_type_index = {}
     for anomaly in anomalies:
         if anomaly in graph.nodes:
@@ -272,13 +272,14 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph):
             anomaly_type_list = anomaly_type_map.get(type, [])
             anomaly_type_list.append(index.index[type][anomaly])
             anomaly_type_map[type] = anomaly_type_list
-            # 找到异常传播前继节点
-            predecessors = list(graph.predecessors(anomaly))
-            for n in predecessors:
-                type = graph.nodes[n]['type']
-                anomaly_type_list = anomaly_type_map.get(type, [])
-                anomaly_type_list.append(index.index[type][n])
-                anomaly_type_map[type] = anomaly_type_list
+            if is_neighbor:
+                # 找到异常传播前继节点
+                predecessors = list(graph.predecessors(anomaly))
+                for n in predecessors:
+                    type = graph.nodes[n]['type']
+                    anomaly_type_list = anomaly_type_map.get(type, [])
+                    anomaly_type_list.append(index.index[type][n])
+                    anomaly_type_map[type] = anomaly_type_list
             anomaly_type_index[anomaly_key] = anomaly_type_map
     return anomaly_type_index
 

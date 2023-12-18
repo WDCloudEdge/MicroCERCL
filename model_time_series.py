@@ -29,11 +29,12 @@ class TimeHGraphConvLayer(nn.Module):
         self.linear_map[NodeType.SVC.value] = nn.Linear(self.svc_num, out_channel)
         self.linear_map[NodeType.POD.value] = nn.Linear(self.instance_num, out_channel)
         self.linear_map['total'] = nn.Linear(self.total_node_num, out_channel)
+        self.activation = nn.LeakyReLU(negative_slope=1e-2)
 
     def forward(self, graph, feat_dict):
         dict = self.conv(graph, feat_dict)
         return self.linear_map['total'](
-            th.cat([nn.LeakyReLU(negative_slope=0.01)(dict[key]) for key in dict], dim=0).T).T
+            th.cat([self.activation(dict[key]) for key in dict], dim=0).T).T
         # # The input is a dictionary of node features for each type
         # funcs = {}
         # for srctype, etype, dsttype in G.canonical_etypes:
@@ -102,14 +103,13 @@ class TimeHGraphConvWindows(nn.Module):
         super(TimeHGraphConvWindows, self).__init__()
         self.hidden_size = hidden_channel
         self.window_size = len(graphs)
-        # todo 结合图结构/指标时序特征
         time_sorted = sorted(graphs.keys())
         self.lstm_layer = nn.LSTM(input_size=self.hidden_size ** 2, hidden_size=self.hidden_size, num_layers=2,
                                   batch_first=True)
         self.time_metrics_layer_list = []
         for time in time_sorted:
             self.time_metrics_layer_list.append(TimeHGraphConvWindow(32, self.hidden_size, graphs[time]))
-        self.linear1 = nn.Linear(self.hidden_size, out_channel)
+        self.linear = nn.Linear(self.hidden_size, out_channel)
 
     def forward(self):
         input_data_list = []
@@ -120,7 +120,7 @@ class TimeHGraphConvWindows(nn.Module):
             input_data_list.append(single_window_feat.reshape(single_window_feat.shape[0], -1))
             if idx != 0:
                 anomaly_time_series_index_list[idx] = [item + sum([i.shape[0] for i in input_data_list[:idx]]) for item in anomaly_time_series_index_list[idx]]
-        return self.linear1(self.lstm_layer(th.cat(input_data_list, dim=0))[0]), anomaly_time_series_index_list
+        return self.linear(self.lstm_layer(th.cat(input_data_list, dim=0))[0]), anomaly_time_series_index_list
 
 
 # 2. 定义无监督的图神经网络模型
