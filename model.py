@@ -8,6 +8,7 @@ from graph import EdgeType, HeteroWithGraphIndex, NodeType
 from typing import Dict
 from model_aggregate import AggrUnsupervisedGNN
 from model_time_series import TimeUnsupervisedGNN
+import wandb
 
 
 class EarlyStopping:
@@ -48,11 +49,13 @@ class UnsupervisedGNN(nn.Module):
         return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index) + self.time_conv.loss(time_feat, time_index)
 
 
-def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool = False):
+def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool = False, learning_rate=0.01):
     model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs)
     if is_train:
+        wandb.init(project="MicroCERC")
+        wandb.watch(model)
         early_stopping = EarlyStopping(patience=5, delta=1e-6)
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
         for epoch in range(500):
             optimizer.zero_grad()
@@ -65,7 +68,7 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool
             early_stopping(loss)
 
             if epoch % 10 == 0:
-                print(f'Epoch {epoch}, Loss: {loss.item()}')
+                wandb.log({"loss": loss})
             if early_stopping.early_stop:
                 print(f"Early stopping with epoch: {epoch}, loss: {loss.item()}")
                 break

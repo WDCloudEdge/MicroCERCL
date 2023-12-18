@@ -36,15 +36,13 @@ if __name__ == "__main__":
         config.end = int(round(now_time + config.duration))
         if config.end > end_time:
             config.end = end_time
-        now_time += config.duration + 1
+        now_time += config.duration + config.step
         time_pair_list.append((config.start, config.end))
         time_pair_index[(config.start, config.end)] = {t: i for i, t in enumerate(range(config.start, config.end, config.step))}
     # 获取拓扑有变动的时间窗口
     topology_change_time_window_list = []
     for ns in namespaces:
         config.namespace = ns
-        now_time = global_now_time
-        end_time = global_end_time
         data_folder = base_dir + '/' + config.namespace
         time_change_ns = MetricCollector.collect_pod_num_and_build_graph_change_windows(config, data_folder, config.collect)
         topology_change_time_window_list.extend(time_change_ns)
@@ -54,8 +52,6 @@ if __name__ == "__main__":
         config.svcs.clear()
         config.pods.clear()
         count = 1
-        now_time = global_now_time
-        end_time = global_end_time
         data_folder = base_dir + '/' + config.namespace
         for time_pair in time_pair_list:
             config.start = time_pair[0]
@@ -66,6 +62,8 @@ if __name__ == "__main__":
             graphs_time_window[str(time_pair[0]) + '-' + str(time_pair[1])] = {**graphs_time_window, **graphs_ns_time_window}
             config.pods.clear()
             count += 1
+    config.start = global_now_time
+    config.end = global_end_time
     MetricCollector.collect_node(config, base_dir + '/node', config.collect)
     # 非云边基于指标异常检测
     anomalies = {}
