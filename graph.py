@@ -6,6 +6,10 @@ import util.utils as util
 from dgl import DGLHeteroGraph, heterograph
 import torch as th
 from enum import Enum
+import json
+from networkx.readwrite import json_graph
+import numpy as np
+import os
 
 
 class NodeType(Enum):
@@ -289,3 +293,19 @@ def get_anomaly_time_window(anomalies, graph_time_window):
         if graph_time_window.split('-')[0] >= time_window.split('-')[0] and graph_time_window.split('-')[1] <= time_window.split('-')[1]:
             return anomalies[time_window]
     return None
+
+
+def graph_dump(graph: nx.Graph, base_dir: str, dump_file):
+    # graph dump
+    graph_copy = graph.copy()
+    for node, data in graph_copy.nodes(data=True):
+        node_data_dict = {}
+        for head in data['data'].columns:
+            node_data_dict[head] = np.array(data['data'][head], dtype=float).tolist()
+        graph_copy.nodes[node]['data'] = node_data_dict
+    json_converted = json_graph.node_link_data(graph_copy)
+    graph_dir = base_dir + '/graph/'
+    if not os.path.exists(graph_dir):
+        os.makedirs(graph_dir)
+    with open(graph_dir + dump_file + '.json', 'w') as outfile:
+        json.dump(json_converted, outfile, indent=4)
