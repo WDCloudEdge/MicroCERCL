@@ -2,7 +2,8 @@ import time
 
 class Config:
     def __init__(self):
-        self.train = False
+        # base
+        self.train = True
         self.collect = False
         self.namespace = 'bookinfo'
         self.nodes = None
@@ -29,6 +30,9 @@ class Config:
 
         # kubernetes
         self.k8s_config = 'local-config'
+
+        # graph
+        self.graph_min_gap = 12 * self.step
 
         # others
         self.dir = 'test-20231212-time'

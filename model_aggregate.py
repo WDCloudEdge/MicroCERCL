@@ -1,17 +1,16 @@
 import torch
 import torch as th
 import torch.nn as nn
-import torch.optim as optim
 import dgl.nn.pytorch as dglnn
-import dgl.function as fn
 from graph import EdgeType, HeteroWithGraphIndex, NodeType
 from typing import Dict, Set
 import sys
 import copy
+from itertools import combinations
 
 
 class AggrHGraphConvLayer(nn.Module):
-    def __init__(self, hidden_size, out_channel, svc_feat_num, instance_feat_num, node_feat_num,
+    def __init__(self, out_channel, svc_feat_num, instance_feat_num, node_feat_num,
                  svc_num, instance_num, node_num, total_node_num):
         super(AggrHGraphConvLayer, self).__init__()
         self.svc_feat_num = svc_feat_num
@@ -22,15 +21,10 @@ class AggrHGraphConvLayer(nn.Module):
         self.node_num = node_num
         self.total_node_num = total_node_num
         self.conv = dglnn.HeteroGraphConv({
-            EdgeType.SVC_CALL_EDGE.value: dglnn.GraphConv(self.svc_feat_num, hidden_size),
-            EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, hidden_size),
-            EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, hidden_size)},
+            EdgeType.SVC_CALL_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel),
+            EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
+            EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, out_channel)},
             aggregate='sum')
-        self.linear_map = {}
-        self.linear_map[NodeType.NODE.value] = nn.Linear(self.node_num, out_channel)
-        self.linear_map[NodeType.SVC.value] = nn.Linear(self.svc_num, out_channel)
-        self.linear_map[NodeType.POD.value] = nn.Linear(self.instance_num, out_channel)
-        self.linear_map['total'] = nn.Linear(self.total_node_num, out_channel)
         self.activation = nn.LeakyReLU(negative_slope=1e-2)
 
     def forward(self, graph: HeteroWithGraphIndex, feat_dict):
@@ -39,32 +33,16 @@ class AggrHGraphConvLayer(nn.Module):
         instance_feat = dict[NodeType.POD.value]
         svc_feat = dict[NodeType.SVC.value]
         return self.activation(th.cat([node_feat, instance_feat, svc_feat], dim=0))
-        # # The input is a dictionary of node features for each type
-        # funcs = {}
-        # for srctype, etype, dsttype in G.canonical_etypes:
-        #     # 计算每一类etype的 W_r * h
-        #     Wh = self.weight[etype](feat_dict[srctype])
-        #     # Save it in graph for message passing
-        #     G.nodes[srctype].data['Wh_%s' % etype] = Wh
-        #     # 消息函数 copy_u: 将源节点的特征聚合到'm'中; reduce函数: 将'm'求均值赋值给 'h'
-        #     funcs[etype] = (fn.copy_u('Wh_%s' % etype, 'm'), fn.mean('m', 'h'))
-        # # Trigger message passing of multiple types.
-        # # The first argument is the message passing functions for each relation.
-        # # The second one is the type wise reducer, could be "sum", "max",
-        # # "min", "mean", "stack"
-        # G.multi_update_all(funcs, 'sum')
-        # # return the updated node feature dictionary
-        # return {ntype : G.nodes[ntype].data['h'] for ntype in G.ntypes}
 
 
 class AggrHGraphConvWindow(nn.Module):
-    def __init__(self, input_size, hidden_size, graph: HeteroWithGraphIndex):
+    def __init__(self, hidden_size, output_size, graph: HeteroWithGraphIndex, num_heads: int = 2, is_attention: bool = False):
         super(AggrHGraphConvWindow, self).__init__()
         self.graph = graph
         self.hidden_size = hidden_size
-        self.input_size = input_size
+        self.output_size = output_size
         self.window_simple_size = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[1]
-        self.lstm_layer = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=2,
+        self.lstm_layer = nn.LSTM(input_size=self.hidden_size, hidden_size=self.output_size, num_layers=2,
                                   batch_first=True)
         self.hGraph_conv_layer_list = []
         self.svc_feat_num = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2]
@@ -73,9 +51,14 @@ class AggrHGraphConvWindow(nn.Module):
         self.svc_num = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[0]
         self.instance_num = graph.hetero_graph.nodes[NodeType.POD.value].data['feat'].shape[0]
         self.node_num = graph.hetero_graph.nodes[NodeType.NODE.value].data['feat'].shape[0]
+        self.is_attention = is_attention
+        if is_attention:
+            self.num_heads = num_heads
+            self.attention = nn.MultiheadAttention(self.hidden_size, num_heads)
+            # self.attention_linear = nn.Linear(input_size, hidden_size)
         for i in range(self.window_simple_size):
             self.hGraph_conv_layer_list.append(
-                AggrHGraphConvLayer(self.input_size, self.hidden_size, self.svc_feat_num, self.instance_feat_num,
+                AggrHGraphConvLayer(self.hidden_size, self.svc_feat_num, self.instance_feat_num,
                                     self.node_feat_num, self.svc_num, self.instance_num, self.node_num,
                                     graph.hetero_graph.num_nodes()))
 
@@ -99,6 +82,13 @@ class AggrHGraphConvWindow(nn.Module):
             }
             single_graph_feat = layer(self.graph, feat_dict)
             input_data_list.append(single_graph_feat.T)
+        if self.is_attention:
+            batch_sequence_list = []
+            combinations_numbers = [list(combination) for combination in combinations(range(self.window_simple_size), self.num_heads)]
+            for combination in combinations_numbers:
+                batch_sequence_list.append([input_data_list[idx] for idx in combination])
+            for batch_sequence in batch_sequence_list:
+                batch_sequence[1] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
         center_node_index: Dict[str, Set[str]] = {}
         graphs_anomaly_node_index = {}
         for center in self.graph.center_type_index:
@@ -128,14 +118,13 @@ class AggrHGraphConvWindows(nn.Module):
     def __init__(self, out_channel, hidden_channel, graphs: Dict[str, HeteroWithGraphIndex]):
         super(AggrHGraphConvWindows, self).__init__()
         self.hidden_size = hidden_channel
-        self.window_size = len(graphs)
-        # todo 结合图结构时序/指标时序特征
+        self.graph_size = len(graphs)
         time_sorted = sorted(graphs.keys())
         self.lstm_layer = nn.LSTM(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=2,
                                   batch_first=True)
         self.time_metrics_layer_list = []
         for time in time_sorted:
-            self.time_metrics_layer_list.append(AggrHGraphConvWindow(32, self.hidden_size, graphs[time]))
+            self.time_metrics_layer_list.append(AggrHGraphConvWindow(32, self.hidden_size, graphs[time], 2, True))
         self.linear = nn.Linear(self.hidden_size, out_channel)
 
     def forward(self):

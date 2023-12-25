@@ -77,6 +77,7 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
                 if row['destination'] == n.node_name:
                     return True
             return False
+
         for group_name, group_data in grouped:
             timestamp_str = str(time_string_2_timestamp(str(group_name)))
             for idx, row in group_data.iterrows():
@@ -270,7 +271,6 @@ def collect_pod_num(config: Config, _dir: str, coll: bool):
     return instance_num_df
 
 
-
 # get qps for microservice
 def collect_svc_qps(config: Config, _dir: str):
     qps_df = pd.DataFrame()
@@ -330,7 +330,8 @@ def collect_ctn_metric(config: Config, _dir: str):
             pod_df = pod_df.set_index('timestamp').combine_first(container_df.set_index('timestamp')).reset_index()
             for i in range(len(container_df[pod_name])):
                 pod_df_index = pod_df.loc[pod_df['timestamp'] == container_df['timestamp'][i]].index[0]
-                pod_df.at[pod_df_index, pod_name] = 1 if pod_df[pod_name][pod_df_index] == 0 and container_df[pod_name][i] == 1 else pod_df[pod_name][pod_df_index]
+                pod_df.at[pod_df_index, pod_name] = 1 if pod_df[pod_name][pod_df_index] == 0 and container_df[pod_name][
+                    i] == 1 else pod_df[pod_name][pod_df_index]
         else:
             pod_df = pd.merge(pod_df, container_df, on='timestamp', how='outer')
         pod_df = pod_df.fillna(0)
@@ -572,13 +573,15 @@ def collect_graph_single(config: Config, _dir: str):
     collect_graph(config, _dir, True)
 
 
-def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_window_list, window_size, coll: bool) -> Dict[
+def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_window_list, window_size, coll: bool) -> \
+Dict[
     str, nx.DiGraph]:
     print('collect graphs')
     if not os.path.exists(_dir):
         os.makedirs(_dir)
     graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll)
-    graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list, window_size)
+    graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
+                                                  window_size)
     return graphs_time_window
 
 
@@ -590,9 +593,12 @@ def collect_pod_num_and_build_graph_change_windows(config: Config, _dir: str, co
         os.makedirs(_dir)
     instance_num_df = collect_pod_num(config, _dir, coll)
     for index, row in instance_num_df.iterrows():
-        if index == 0 or (index >= 1 and not row.drop('timestamp').equals(instance_num_df.iloc[index - 1].drop('timestamp'))):
+        if index == 0 or (
+                index >= 1 and not row.drop('timestamp').equals(instance_num_df.iloc[index - 1].drop('timestamp'))
+                and (time_string_2_timestamp(str(row['timestamp'])) - time_string_2_timestamp(time_change[-1])) >= config.graph_min_gap
+        ):
             time_change.append(str(row['timestamp']))
     last_timestamp = str(instance_num_df.iloc[instance_num_df.shape[0] - 1]['timestamp'])
-    if last_timestamp not in time_change:
+    if last_timestamp not in time_change and (time_string_2_timestamp(last_timestamp) - time_string_2_timestamp(time_change[-1])) >= config.graph_min_gap:
         time_change.append(last_timestamp)
     return time_change

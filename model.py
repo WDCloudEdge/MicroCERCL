@@ -9,6 +9,7 @@ from typing import Dict
 from model_aggregate import AggrUnsupervisedGNN
 from model_time_series import TimeUnsupervisedGNN
 import wandb
+from datetime import datetime
 
 
 class EarlyStopping:
@@ -52,9 +53,9 @@ class UnsupervisedGNN(nn.Module):
 def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool = False, learning_rate=0.01):
     model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs)
     if is_train:
-        wandb.init(project="MicroCERC")
+        wandb.init(project="MicroCERC", name="MicroCERC " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         wandb.watch(model)
-        early_stopping = EarlyStopping(patience=5, delta=1e-6)
+        early_stopping = EarlyStopping(patience=5, delta=1e-5)
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
         for epoch in range(500):
@@ -69,6 +70,7 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool
 
             if epoch % 10 == 0:
                 wandb.log({"loss": loss})
+                pass
             if early_stopping.early_stop:
                 print(f"Early stopping with epoch: {epoch}, loss: {loss.item()}")
                 break
@@ -101,7 +103,7 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool
                     total_index_node[i + padding_num] = [key for key, value in graph_index.pod_index.items() if value == i - node_num][0]
                 elif node_num + pod_num <= i < total_num:
                     total_index_node[i + padding_num] = [key for key, value in graph_index.svc_index.items() if value == i - node_num - pod_num][0]
-        output = output.T.numpy().flatten().tolist()
+        output = torch.sum(output, dim=1, keepdim=True).T.numpy().flatten().tolist()
         output_score = {}
         for idx, score in enumerate(output):
             s = output_score.get(total_index_node[idx], 0)

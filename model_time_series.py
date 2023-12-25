@@ -1,9 +1,7 @@
 import torch
 import torch as th
 import torch.nn as nn
-import torch.optim as optim
 import dgl.nn.pytorch as dglnn
-import dgl.function as fn
 from graph import EdgeType, HeteroWithGraphIndex, NodeType
 from typing import Dict
 
@@ -35,22 +33,6 @@ class TimeHGraphConvLayer(nn.Module):
         dict = self.conv(graph, feat_dict)
         return self.linear_map['total'](
             th.cat([self.activation(dict[key]) for key in dict], dim=0).T).T
-        # # The input is a dictionary of node features for each type
-        # funcs = {}
-        # for srctype, etype, dsttype in G.canonical_etypes:
-        #     # 计算每一类etype的 W_r * h
-        #     Wh = self.weight[etype](feat_dict[srctype])
-        #     # Save it in graph for message passing
-        #     G.nodes[srctype].data['Wh_%s' % etype] = Wh
-        #     # 消息函数 copy_u: 将源节点的特征聚合到'm'中; reduce函数: 将'm'求均值赋值给 'h'
-        #     funcs[etype] = (fn.copy_u('Wh_%s' % etype, 'm'), fn.mean('m', 'h'))
-        # # Trigger message passing of multiple types.
-        # # The first argument is the message passing functions for each relation.
-        # # The second one is the type wise reducer, could be "sum", "max",
-        # # "min", "mean", "stack"
-        # G.multi_update_all(funcs, 'sum')
-        # # return the updated node feature dictionary
-        # return {ntype : G.nodes[ntype].data['h'] for ntype in G.ntypes}
 
 
 class TimeHGraphConvWindow(nn.Module):
