@@ -2,9 +2,7 @@ import torch
 import torch as th
 import torch.nn as nn
 import torch.optim as optim
-import dgl.nn.pytorch as dglnn
-import dgl.function as fn
-from graph import EdgeType, HeteroWithGraphIndex, NodeType
+from graph import HeteroWithGraphIndex, NodeType
 from typing import Dict
 from model_aggregate import AggrUnsupervisedGNN
 from model_time_series import TimeUnsupervisedGNN
@@ -70,7 +68,6 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool
 
             if epoch % 10 == 0:
                 wandb.log({"loss": loss})
-                pass
             if early_stopping.early_stop:
                 print(f"Early stopping with epoch: {epoch}, loss: {loss.item()}")
                 break
