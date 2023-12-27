@@ -35,7 +35,7 @@ class Config:
         self.graph_min_gap = 12 * self.step
 
         # others
-        self.dir = 'test-20231212-time'
+        self.dir = 'MicroIRC'
 
 
 class Node:

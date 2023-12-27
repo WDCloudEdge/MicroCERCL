@@ -166,8 +166,9 @@ class AggrHGraphConvWindows(nn.Module):
                     window_graphs_anomaly_node_index_combine[ano].extend(idx_list)
                 else:
                     window_graphs_anomaly_node_index_combine[ano] = idx_list
-        return self.linear(self.lstm_layer(th.cat(input_data_list, dim=0))[
-                                0]), window_graphs_center_node_index, window_graphs_anomaly_node_index_combine
+        output = self.linear(self.lstm_layer(th.cat(input_data_list, dim=0))[0])
+        output = output.reshape(output.shape[0], -1)
+        return torch.sum(output, dim=1, keepdim=True), window_graphs_center_node_index, window_graphs_anomaly_node_index_combine
 
 
 class AggrUnsupervisedGNN(nn.Module):

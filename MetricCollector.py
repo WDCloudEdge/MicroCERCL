@@ -6,7 +6,7 @@ from util.PrometheusClient import PrometheusClient
 from util.KubernetesClient import KubernetesClient
 import networkx as nx
 from typing import Dict, List, Tuple
-from graph import combine_timestamps_graph, NodeType
+from graph import combine_timestamps_graph, NodeType, graph_load
 
 
 def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
@@ -15,7 +15,7 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
     svc_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     pod_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     path = os.path.join(_dir, 'graph.csv')
-    k8s_nodes = KubernetesClient(config).get_nodes()
+    k8s_nodes = [Node('192.168.31.101:9100', '192.168.31.101', '192.168.31.101:9100', '', 'Ready', 'cloud')]
     if collect:
         prom_util = PrometheusClient(config)
         prom_sql = 'sum(istio_tcp_received_bytes_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace
@@ -96,7 +96,7 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
     combine_timestamp = pod_timestamp_map.copy()
     combine_timestamp.update(svc_timestamp_map.copy())
     k8s_client = KubernetesClient(config)
-    node_center: Dict[str, str] = k8s_client.get_node_center()
+    node_center: Dict[str, str] = {'192.168.31.101:9100': 'cloud'}
     for timestamp in combine_timestamp:
         g = nx.DiGraph()
         svc_call_list = svc_timestamp_map.get(timestamp, None)
@@ -558,6 +558,13 @@ def collect(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
     return graphs
 
 
+def collect_from_file(config: Config, _dir: str) -> Dict[str, nx.DiGraph]:
+    print('collect graph from file')
+    graph = graph_load(_dir, 'graph.json')
+    graphs: Dict[str, nx.DiGraph] = {t: graph for t in range(config.start, config.end + config.step, config.step)}
+    return graphs
+
+
 def collect_node(config: Config, _dir: str, coll: bool):
     print('collect node metrics')
     if not os.path.exists(_dir):
@@ -574,12 +581,12 @@ def collect_graph_single(config: Config, _dir: str):
 
 
 def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_window_list, window_size, coll: bool) -> \
-Dict[
-    str, nx.DiGraph]:
+        Dict[
+            str, nx.DiGraph]:
     print('collect graphs')
     if not os.path.exists(_dir):
         os.makedirs(_dir)
-    graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll)
+    graphs: Dict[str, nx.DiGraph] = collect_from_file(config, _dir)
     graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
                                                   window_size)
     return graphs_time_window
@@ -595,10 +602,12 @@ def collect_pod_num_and_build_graph_change_windows(config: Config, _dir: str, co
     for index, row in instance_num_df.iterrows():
         if index == 0 or (
                 index >= 1 and not row.drop('timestamp').equals(instance_num_df.iloc[index - 1].drop('timestamp'))
-                and (time_string_2_timestamp(str(row['timestamp'])) - time_string_2_timestamp(time_change[-1])) >= config.graph_min_gap
+                and (time_string_2_timestamp(str(row['timestamp'])) - time_string_2_timestamp(
+            time_change[-1])) >= config.graph_min_gap
         ):
             time_change.append(str(row['timestamp']))
     last_timestamp = str(instance_num_df.iloc[instance_num_df.shape[0] - 1]['timestamp'])
-    if last_timestamp not in time_change and (time_string_2_timestamp(last_timestamp) - time_string_2_timestamp(time_change[-1])) >= config.graph_min_gap:
+    if last_timestamp not in time_change and (
+            time_string_2_timestamp(last_timestamp) - time_string_2_timestamp(time_change[-1])) >= config.graph_min_gap:
         time_change.append(last_timestamp)
     return time_change

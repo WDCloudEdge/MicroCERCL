@@ -43,68 +43,81 @@ class UnsupervisedGNN(nn.Module):
         return aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list
 
     def loss(self, aggr_feat, aggr_center_index, aggr_anomaly_index, time_feat, time_index):
-        if len(time_index) == 0:
+        if len(time_index) == 0 or len([item for sublist in time_index for item in sublist]) == 0:
             return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index)
         return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index) + self.time_conv.loss(time_feat, time_index)
 
 
 def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: bool = False, learning_rate=0.01):
     model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs)
-    if is_train:
-        wandb.init(project="MicroCERC", name="MicroCERC " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        wandb.watch(model)
-        early_stopping = EarlyStopping(patience=5, delta=1e-5)
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    root_cause_file = 'label5'
+    root_cause = 'paymentservice-6879f6c8c4-8pbjc'
+    with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
+        print(f"root_cause: {root_cause}", file=output_file)
+        if is_train:
+            # wandb.init(project="MicroCERC", name="MicroCERC " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            # wandb.watch(model)
+            early_stopping = EarlyStopping(patience=5, delta=1e-5)
+            optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-        for epoch in range(500):
-            optimizer.zero_grad()
-            aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
+            for epoch in range(500):
+                optimizer.zero_grad()
+                aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
 
-            loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list)
+                loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list)
 
-            loss.backward()
-            optimizer.step()
-            early_stopping(loss)
+                loss.backward()
+                optimizer.step()
+                early_stopping(loss)
 
-            if epoch % 10 == 0:
-                wandb.log({"loss": loss})
-            if early_stopping.early_stop:
-                print(f"Early stopping with epoch: {epoch}, loss: {loss.item()}")
-                break
-        torch.save(model.state_dict(), dir + '/model_weights.pth')
-    else:
-        model.load_state_dict(torch.load(dir + '/model_weights.pth'))
-    with th.no_grad():
-        model.eval()
-        output = model()[0]
-        output = output.reshape(output.shape[0], -1)
-        time_sorted = sorted(graphs.keys())
-        total_num_list = []
-        total_index_node = {}
-        for idx, time in enumerate(time_sorted):
-            graph = graphs[time]
-            total_num = graph.hetero_graph.num_nodes()
-            total_num_list.append(total_num)
-            node_num = graph.hetero_graph.num_nodes(NodeType.NODE.value)
-            svc_num = graph.hetero_graph.num_nodes(NodeType.SVC.value)
-            pod_num = graph.hetero_graph.num_nodes(NodeType.POD.value)
-            graph_index = graph.hetero_graph_index
-            if idx == 0:
-                padding_num = 0
-            else:
-                padding_num = sum(total_num_list[:idx])
-            for i in range(total_num):
-                if i < node_num:
-                    total_index_node[i + padding_num] = [key for key, value in graph_index.node_index.items() if value == i][0]
-                elif node_num <= i < node_num + pod_num:
-                    total_index_node[i + padding_num] = [key for key, value in graph_index.pod_index.items() if value == i - node_num][0]
-                elif node_num + pod_num <= i < total_num:
-                    total_index_node[i + padding_num] = [key for key, value in graph_index.svc_index.items() if value == i - node_num - pod_num][0]
-        output = torch.sum(output, dim=1, keepdim=True).T.numpy().flatten().tolist()
-        output_score = {}
-        for idx, score in enumerate(output):
-            s = output_score.get(total_index_node[idx], 0)
-            output_score[total_index_node[idx]] = s + score
-        sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1]))
-        for key, value in list(sorted_dict.items())[:10]:
-            print(f"{key}: {value}")
+                if epoch % 10 == 0:
+                    # wandb.log({"loss": loss})
+                    print(f"epoch: {epoch}, loss: {loss}", file=output_file)
+                    print(f"epoch: {epoch}, loss: {loss}")
+                if early_stopping.early_stop:
+                    print(f"Early stopping with epoch: {epoch}, loss: {loss.item()}", file=output_file)
+                    break
+            torch.save(model.state_dict(), dir + '/model_weights.pth')
+        else:
+            model.load_state_dict(torch.load(dir + '/model_weights.pth'))
+        with th.no_grad():
+            model.eval()
+            output = model()[0]
+            # output = output.reshape(output.shape[0], -1)
+            time_sorted = sorted(graphs.keys())
+            total_num_list = []
+            total_index_node = {}
+            for idx, time in enumerate(time_sorted):
+                graph = graphs[time]
+                total_num = graph.hetero_graph.num_nodes()
+                total_num_list.append(total_num)
+                node_num = graph.hetero_graph.num_nodes(NodeType.NODE.value)
+                svc_num = graph.hetero_graph.num_nodes(NodeType.SVC.value)
+                pod_num = graph.hetero_graph.num_nodes(NodeType.POD.value)
+                graph_index = graph.hetero_graph_index
+                if idx == 0:
+                    padding_num = 0
+                else:
+                    padding_num = sum(total_num_list[:idx])
+                for i in range(total_num):
+                    if i < node_num:
+                        total_index_node[i + padding_num] = [key for key, value in graph_index.node_index.items() if value == i][0]
+                    elif node_num <= i < node_num + pod_num:
+                        total_index_node[i + padding_num] = [key for key, value in graph_index.pod_index.items() if value == i - node_num][0]
+                    elif node_num + pod_num <= i < total_num:
+                        total_index_node[i + padding_num] = [key for key, value in graph_index.svc_index.items() if value == i - node_num - pod_num][0]
+            output = output.T.numpy().flatten().tolist()
+            output_score = {}
+            for idx, score in enumerate(output):
+                s = output_score.get(total_index_node[idx], 0)
+                output_score[total_index_node[idx]] = s + abs(score)
+            sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1]))
+            top_k = 0
+            is_top_k = False
+            for key, value in list(sorted_dict.items())[:10]:
+                if not is_top_k:
+                    top_k += 1
+                print(f"{key}: {value}", file=output_file)
+                if key == root_cause:
+                    is_top_k = True
+            print(f"top_k: {top_k}", file=output_file)

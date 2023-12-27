@@ -121,6 +121,8 @@ class TimeUnsupervisedGNN(nn.Module):
             return 0
         sum_criterion = 0
         for time_anomaly_index in time_series_anomaly_index:
+            if len(time_anomaly_index) == 0:
+                continue
             time_series_anomaly_center = time_series_feat[time_anomaly_index]
             sum_criterion += self.criterion(time_series_anomaly_center, torch.zeros_like(time_series_anomaly_center))
         return sum_criterion

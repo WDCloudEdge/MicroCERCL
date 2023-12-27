@@ -8,14 +8,32 @@ from graph import combine_ns_graphs, graph_weight_ns, graph_weight, GraphIndex, 
     HeteroWithGraphIndex, graph_dump
 from model import train
 from anomaly_detection import get_anomaly_by_df
-from util.utils import time_string_2_timestamp
+from util.utils import time_string_2_timestamp, timestamp_2_time_string, df_time_limit
+from anomaly_detection import get_timestamp_index
+import pandas as pd
 
 if __name__ == "__main__":
     # namespaces = ['bookinfo', 'hipster', 'hipster2', 'sock-shop', 'horsecoder-test', 'horsecoder-minio']
-    namespaces = ['bookinfo']
+    namespaces = ['hipster']
     config = Config()
-    global_now_time = 1702349400
-    global_end_time = 1702349700
+    # label1
+    # global_now_time = 1658467110
+    # global_end_time = 1658467560
+    # label2
+    # global_now_time = 1658468340
+    # global_end_time = 1658468915
+    # label3
+    # global_now_time = 1658470143
+    # global_end_time = 1658470723
+    # label4
+    # global_now_time = 1658472534
+    # global_end_time = 1658472844
+    # label5
+    global_now_time = 1658473440
+    global_end_time = 1658474040
+    # label6
+    # global_now_time = 1658475840
+    # global_end_time = 1658476440
     now = int(time.time())
     if global_now_time > now:
         sys.exit("begin time is after now time")
@@ -36,15 +54,16 @@ if __name__ == "__main__":
             config.end = end_time
         now_time += config.duration + config.step
         time_pair_list.append((config.start, config.end))
-        time_pair_index[(config.start, config.end)] = {t: i for i, t in
-                                                       enumerate(range(config.start, config.end, config.step))}
+        df = pd.read_csv(base_dir + '/hipster/' + 'latency.csv')
+        df = df_time_limit(df, config.start, config.end)
+        df_time_index, df_index_time = get_timestamp_index(df)
+        time_pair_index[(config.start, config.end)] = df_time_index
     # 获取拓扑有变动的时间窗口
     topology_change_time_window_list = []
     for ns in namespaces:
         config.namespace = ns
         data_folder = base_dir + '/' + config.namespace
-        time_change_ns = MetricCollector.collect_pod_num_and_build_graph_change_windows(config, data_folder,
-                                                                                        config.collect)
+        time_change_ns = [timestamp_2_time_string(global_now_time), timestamp_2_time_string(global_end_time)]
         topology_change_time_window_list.extend(time_change_ns)
     topology_change_time_window_list = sorted(list(set(topology_change_time_window_list)))
     for ns in namespaces:
@@ -57,7 +76,7 @@ if __name__ == "__main__":
             config.start = time_pair[0]
             config.end = time_pair[1]
             print('第' + str(count) + '次获取 [' + config.namespace + '] 数据')
-            graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, data_folder,
+            graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, base_dir,
                                                                              topology_change_time_window_list,
                                                                              config.window_size, config.collect)
             graphs_time_window[str(time_pair[0]) + '-' + str(time_pair[1])] = {**graphs_time_window,
@@ -104,12 +123,19 @@ if __name__ == "__main__":
             anomalies_series_time_window = anomaly_time_series[time_window]
             a_t_index = []
             for anomaly in anomalies_series_time_window:
-                anomaly_series_time_window = [time_string_2_timestamp(t) for t in anomalies_series_time_window[anomaly]]
+                anomaly_series_time_window = anomalies_series_time_window[anomaly]
                 if max(anomaly_series_time_window) < int(begin_t) or min(anomaly_series_time_window) > int(end_t):
                     continue
+
+                def get_t(begin_t, t_index_time_window):
+                    index = len(t_index_time_window.keys()) - 1
+                    for i, t in enumerate(sorted(t_index_time_window.keys())):
+                        if int(begin_t) <= t:
+                            index = i
+                    return index
                 for t in anomaly_series_time_window:
                     if int(begin_t) <= t <= int(end_t):
-                        a_t_index.append(t_index_time_window[t] - t_index_time_window[int(begin_t)])
+                        a_t_index.append(t_index_time_window[t] - get_t(begin_t, t_index_time_window))
             a_t_index = list(set(a_t_index))
             graphs_anomaly_time_series_index[time] = a_t_index
 

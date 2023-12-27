@@ -23,7 +23,8 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
     anomaly_svcs, anomaly_svc_time_series_index = birch_ad_with_smoothing(
         df_time_limit_normalization(latency_data, begin_timestamp, end_timestamp))
     anomaly_time_series = {**anomaly_time_series, **anomaly_svc_time_series_index}
-    anomalies.extend([a_svc[:a_svc.rfind('&')] for a_svc in anomaly_svcs])
+    # anomalies.extend([a_svc[:a_svc.rfind('&')] for a_svc in anomaly_svcs])
+    anomalies.extend(anomaly_svcs)
     # qps data
     qps_file_name = file_dir + '/' + 'svc_qps.csv'
     qps_source_data = pd.read_csv(qps_file_name)
@@ -43,20 +44,20 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
     instance_source_data = pd.read_csv(instance_file_name)
     anomalies_index = df_time_limit_normalization_ctn_anomalies_with_index(instance_source_data, begin_timestamp,
                                                                            end_timestamp)
-    anomalies.extend(a_instance[:a_instance.rfind('_')] for a_instance in anomalies_index.keys())
+    anomalies.extend([a_instance[:a_instance.rfind('&')] for a_instance in anomalies_index.keys()])
     anomalies = list(set(anomalies))
     if 'istio-ingressgateway' in anomalies:
         anomalies.remove('istio-ingressgateway')
     a_instance_time_series = {}
     for a_instance in anomalies_index:
-        a_i = a_instance_time_series.get(a_instance[:a_instance.rfind('_')], [])
+        a_i = a_instance_time_series.get(a_instance[:a_instance.rfind('&')], [])
         a_i.extend(anomalies_index[a_instance])
-        a_instance_time_series[a_instance[:a_instance.rfind('_')]] = list(set(a_i))
+        a_instance_time_series[a_instance[:a_instance.rfind('&')]] = list(set(a_i))
     anomaly_time_series = {**anomaly_time_series, **a_instance_time_series}
     return anomalies, anomaly_time_series
 
 
-def birch_ad_with_smoothing(df, threshold=0.1, smoothing_window=12, n=5):
+def birch_ad_with_smoothing(df, threshold=0.05, smoothing_window=12, n=5):
     # anomaly detection on response time of service invocation.
     # input: response times of service invocations, threshold for birch clustering
     # output: anomalous service invocation
@@ -105,11 +106,11 @@ def birch_ad_with_smoothing(df, threshold=0.1, smoothing_window=12, n=5):
                 #     time_label_index[label] = time_labels
                 # anomaly_time_series_index.extend(time_label_index[len(brc.subcluster_centers_) - 1])
                 # anomaly_time_series_index[node] = df_index_time[time_label_index[len(brc.subcluster_centers_) - 1]]
-                anomaly_time_series_index[node] = df_index_time[n_outlying_indices]
+                anomaly_time_series_index[node] = [df_index_time[item] for item in n_outlying_indices.tolist()]
     return anomalies, anomaly_time_series_index
 
 
-def birch_ad_with_smoothing_series(series, threshold=0.1, smoothing_window=12, n=5):
+def birch_ad_with_smoothing_series(series, threshold=0.05, smoothing_window=12, n=5):
     anomaly_time_series_index = []
     metrics = normalize_series(series)
     metrics = metrics.rolling(

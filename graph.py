@@ -266,7 +266,7 @@ def get_edge_type(u_type, v_type):
         pass
 
 
-def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = False):
+def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = True):
     anomaly_type_index = {}
     for anomaly in anomalies:
         if anomaly in graph.nodes:
@@ -309,3 +309,23 @@ def graph_dump(graph: nx.Graph, base_dir: str, dump_file):
         os.makedirs(graph_dir)
     with open(graph_dir + dump_file + '.json', 'w') as outfile:
         json.dump(json_converted, outfile, indent=4)
+
+
+def graph_load(base_dir: str, file_name: str) -> nx.DiGraph:
+    graph_path = base_dir + '/graph/' + file_name
+    with open(graph_path, 'r') as json_file:
+        json_data_read = json.load(json_file)
+    graph = json_graph.node_link_graph(json_data_read, directed=True, multigraph=False)
+    graph_new = nx.DiGraph()
+    for edge in graph.edges:
+        source = edge[0]
+        destination = edge[1]
+        graph_new.add_edge(source, destination)
+        graph_new.nodes[source]['type'] = graph.nodes[source]['type']
+        graph_new.nodes[destination]['type'] = graph.nodes[destination]['type']
+        try:
+            graph_new.nodes[source]['center'] = graph.nodes[source]['center']
+            graph_new.nodes[destination]['center'] = graph.nodes[destination]['center']
+        except:
+            pass
+    return graph_new

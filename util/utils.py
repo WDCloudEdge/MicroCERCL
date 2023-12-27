@@ -20,9 +20,14 @@ def ip_2_subnet(ip: str, net_mask: int):
 
 
 def time_string_2_timestamp(time_string):
-    dt_object = datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.utc)
+    dt_object = datetime.strptime(time_string, '%Y/%m/%d %H:%M:%S').replace(tzinfo=pytz.utc)
     # 使用 timestamp() 将 datetime 对象转换为时间戳
     return int(dt_object.timestamp())
+
+
+def timestamp_2_time_string(timestamp):
+    dt_object = datetime.utcfromtimestamp(timestamp)
+    return dt_object.strftime("%Y/%m/%d %H:%M:%S")
 
 
 def normalize_dataframe(data):
@@ -50,20 +55,21 @@ def df_time_limit(df, begin_timestamp, end_timestamp):
     begin_index = 0
     end_index = 1
 
-    max_timestamp = time_string_2_timestamp(df['timestamp'][df.shape[0] - 1])
+    max_timestamp = int(df['timestamp'][df.shape[0] - 1])
     for index, row in df.iterrows():
-        if time_string_2_timestamp(row['timestamp']) >= int(begin_timestamp):
+        if int(row['timestamp']) >= int(begin_timestamp):
             begin_index = index
             break
     for index, row in df.iterrows():
-        if index > begin_index and time_string_2_timestamp(row['timestamp']) >= int(end_timestamp):
+        if index > begin_index and int(row['timestamp']) >= int(end_timestamp):
             end_index = index
             break
     if max_timestamp < int(end_timestamp):
         end_index = df.shape[0]
     df = df.loc[begin_index:end_index]
+    df = df.reset_index(drop=True)
     return df
 
 
 def df_time_limit_normalization(df, begin_timestamp, end_timestamp):
-    return normalize_dataframe(df_time_limit(df, begin_timestamp, end_timestamp))
+    return normalize_dataframe(df_time_limit(df, begin_timestamp, end_timestamp).fillna(0))
