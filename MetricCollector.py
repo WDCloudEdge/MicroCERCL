@@ -587,6 +587,26 @@ def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_win
     if not os.path.exists(_dir):
         os.makedirs(_dir)
     graphs: Dict[str, nx.DiGraph] = collect_from_file(config, _dir)
+    for graph_key in graphs:
+        graph = graphs[graph_key]
+        graph_svcs_calls = []
+        graph_svcs = []
+        for edge in graph.edges:
+            source = edge[0]
+            target = edge[1]
+            if graph.nodes[source]['type'] == 'svc':
+                graph_svcs_calls.append((source, target))
+                graph_svcs.append(source)
+                graph_svcs.append(target)
+        graph_svcs = list(set(graph_svcs))
+        for svc_call in graph_svcs_calls:
+            s = svc_call[0]
+            t = svc_call[1]
+            for sn in graph.nodes:
+                if s in sn and not s == sn:
+                    for tn in graph.nodes:
+                        if t in tn and not t == tn:
+                            graph.add_edge(sn, tn)
     graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
                                                   window_size)
     return graphs_time_window

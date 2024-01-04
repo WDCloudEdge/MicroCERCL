@@ -13,18 +13,18 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
     # read call latency data
     call_data = pd.read_csv(file_dir + '/' + 'call.csv')
     anomaly_svc_calls, anomaly_call_time_series_index = birch_ad_with_smoothing(
-        df_time_limit_normalization(call_data, begin_timestamp, end_timestamp))
+        df_time_limit_normalization(call_data, begin_timestamp, end_timestamp), threshold=0.1, n=6)
     anomaly_time_series = {**anomaly_time_series, **anomaly_call_time_series_index}
     a_svc_calls = [a[:a.rfind('&')].split('_') for a in anomaly_svc_calls]
     for a_svc in a_svc_calls:
         anomalies.extend(a_svc)
     # read svc latency data
-    latency_data = pd.read_csv(file_dir + '/' + 'latency.csv')
+    latency_data = pd.read_csv(file_dir + '/' + 'latency_instance.csv')
     anomaly_svcs, anomaly_svc_time_series_index = birch_ad_with_smoothing(
-        df_time_limit_normalization(latency_data, begin_timestamp, end_timestamp))
+        df_time_limit_normalization(latency_data, begin_timestamp, end_timestamp), threshold=0.1, n=6)
     anomaly_time_series = {**anomaly_time_series, **anomaly_svc_time_series_index}
-    # anomalies.extend([a_svc[:a_svc.rfind('&')] for a_svc in anomaly_svcs])
-    anomalies.extend(anomaly_svcs)
+    anomalies.extend([a_svc[:a_svc.rfind('&')] for a_svc in anomaly_svcs])
+    # anomalies.extend(anomaly_svcs)
     # qps data
     qps_file_name = file_dir + '/' + 'svc_qps.csv'
     qps_source_data = pd.read_csv(qps_file_name)
@@ -57,7 +57,7 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
     return anomalies, anomaly_time_series
 
 
-def birch_ad_with_smoothing(df, threshold=0.05, smoothing_window=12, n=5):
+def birch_ad_with_smoothing(df, threshold=0.1, smoothing_window=6, n=6):
     # anomaly detection on response time of service invocation.
     # input: response times of service invocations, threshold for birch clustering
     # output: anomalous service invocation
@@ -76,41 +76,18 @@ def birch_ad_with_smoothing(df, threshold=0.05, smoothing_window=12, n=5):
             normalized_x = preprocessing.normalize([x])
 
             X = normalized_x.reshape(-1, 1)
-            brc = Birch(branching_factor=50, n_clusters=None,
-                        threshold=threshold, compute_labels=True)
-            brc.fit(X)
-            brc.predict(X)
-
-            labels = brc.labels_
-            n_clusters = np.unique(labels).size
-            if n_clusters > 1:
-                anomalies.append(node)
-                # time_label_index = {}
-                # for idx, label in enumerate(labels):
-                #     time_labels = time_label_index.get(label, [])
-                #     time_labels.append(idx)
-                #     time_label_index[label] = time_labels
+            std_dev = np.std(X)
+            if 3 * std_dev > threshold:
                 mean_vector = np.mean(X, axis=0)
-                # 计算每个样本到整体平均的距离
                 distances_to_cluster_centers = pairwise_distances(X, [mean_vector]).flatten()
-                # distances_to_cluster_centers = pairwise_distances_argmin_min(X, brc.subcluster_centers_)[1]
-                # 找到最离群的前n个点的索引
-                if len(labels) < n:
-                    n_outlying_indices = [i for i in range(len(labels))]
-                else:
-                    n_outlying_indices = np.argsort(distances_to_cluster_centers)[-n:]
-                # time_label_index = {}
-                # for idx, label in enumerate(labels):
-                #     time_labels = time_label_index.get(label, [])
-                #     time_labels.append(idx)
-                #     time_label_index[label] = time_labels
-                # anomaly_time_series_index.extend(time_label_index[len(brc.subcluster_centers_) - 1])
-                # anomaly_time_series_index[node] = df_index_time[time_label_index[len(brc.subcluster_centers_) - 1]]
-                anomaly_time_series_index[node] = [df_index_time[item] for item in n_outlying_indices.tolist()]
+                n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 3 * std_dev)[0]
+                if len(n_outlying_indices) > 0:
+                    anomalies.append(node)
+                    anomaly_time_series_index[node] = [df_index_time[item] for item in n_outlying_indices.tolist()]
     return anomalies, anomaly_time_series_index
 
 
-def birch_ad_with_smoothing_series(series, threshold=0.05, smoothing_window=12, n=5):
+def birch_ad_with_smoothing_series(series, threshold=0.1, smoothing_window=6, n=6):
     anomaly_time_series_index = []
     metrics = normalize_series(series)
     metrics = metrics.rolling(
@@ -120,33 +97,15 @@ def birch_ad_with_smoothing_series(series, threshold=0.05, smoothing_window=12, 
     normalized_x = preprocessing.normalize([x])
 
     X = normalized_x.reshape(-1, 1)
-    brc = Birch(branching_factor=50, n_clusters=None,
-                threshold=threshold, compute_labels=True)
-    brc.fit(X)
-    brc.predict(X)
-
-    labels = brc.labels_
-    n_clusters = np.unique(labels).size
+    std_dev = np.std(X)
     is_anomaly = False
-    if n_clusters > 1:
-        is_anomaly = True
+    if 3 * std_dev > threshold:
         mean_vector = np.mean(X, axis=0)
-        # todo 实例不健康时，是否需要别的处理策略
-        # 计算每个样本到整体平均的距离
         distances_to_cluster_centers = pairwise_distances(X, [mean_vector]).flatten()
-        # distances_to_cluster_centers = pairwise_distances_argmin_min(X, brc.subcluster_centers_)[1]
-        # 找到最离群的前n个点的索引
-        if len(labels) < n:
-            n_outlying_indices = [i for i in range(len(labels))]
-        else:
-            n_outlying_indices = np.argsort(distances_to_cluster_centers)[-n:]
-        # time_label_index = {}
-        # for idx, label in enumerate(labels):
-        #     time_labels = time_label_index.get(label, [])
-        #     time_labels.append(idx)
-        #     time_label_index[label] = time_labels
-        # anomaly_time_series_index.extend(time_label_index[len(brc.subcluster_centers_) - 1])
-        anomaly_time_series_index.extend(n_outlying_indices)
+        n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 3 * std_dev)[0]
+        if len(n_outlying_indices) > 0:
+            is_anomaly = True
+            anomaly_time_series_index.extend(n_outlying_indices)
     return is_anomaly, list(set(anomaly_time_series_index))
 
 

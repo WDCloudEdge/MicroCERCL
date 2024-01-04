@@ -26,14 +26,56 @@ if __name__ == "__main__":
     # global_now_time = 1658470143
     # global_end_time = 1658470723
     # label4
-    # global_now_time = 1658472534
-    # global_end_time = 1658472844
+    # global_now_time = 1658472240
+    # global_end_time = 1658472840
     # label5
-    global_now_time = 1658473440
-    global_end_time = 1658474040
+    # global_now_time = 1658473440
+    # global_end_time = 1658474040
     # label6
+    # global_now_time = 1658474580
+    # global_end_time = 1658475180
+    # label7
     # global_now_time = 1658475840
     # global_end_time = 1658476440
+    # label8
+    # global_now_time = 1658477040
+    # global_end_time = 1658477640
+    # label9
+    # global_now_time = 1658478120
+    # global_end_time = 1658478720
+    # label10
+    # global_now_time = 1658479080
+    # global_end_time = 1658479680
+    # label11
+    # global_now_time = 1658480340
+    # global_end_time = 1658480940
+    # label12
+    # global_now_time = 1658481900
+    # global_end_time = 1658482500
+    # label13
+    # global_now_time = 1658482920
+    # global_end_time = 1658483520
+    # label14
+    # global_now_time = 1658484120
+    # global_end_time = 1658484720
+    # label15
+    # global_now_time = 1658484960
+    # global_end_time = 1658485560
+    # label16
+    global_now_time = 1658487540
+    global_end_time = 1658488140
+    # label17
+    # global_now_time = 1658489220
+    # global_end_time = 1658489820
+    # label18
+    # global_now_time = 1658490300
+    # global_end_time = 1658490900
+    # label19
+    # global_now_time = 1658493360
+    # global_end_time = 1658493960
+    # label20
+    # global_now_time = 1658494740
+    # global_end_time = 1658495340
     now = int(time.time())
     if global_now_time > now:
         sys.exit("begin time is after now time")
@@ -132,6 +174,7 @@ if __name__ == "__main__":
                     for i, t in enumerate(sorted(t_index_time_window.keys())):
                         if int(begin_t) <= t:
                             index = i
+                            break
                     return index
                 for t in anomaly_series_time_window:
                     if int(begin_t) <= t <= int(end_t):
@@ -144,4 +187,4 @@ if __name__ == "__main__":
         # 转化为dgl构建图网络栈
         hetero_graphs_combine: Dict[str, HeteroWithGraphIndex] = get_hg(graphs_combine, graphs_combine_index, anomalies,
                                                                         graphs_anomaly_time_series_index)
-        train(hetero_graphs_combine, base_dir, config.train)
+        train(hetero_graphs_combine, base_dir, config.train, rnn=config.rnn_type)

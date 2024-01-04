@@ -1,10 +1,24 @@
 import time
+from enum import Enum
+
+
+class RnnType(Enum):
+    LSTM = 'lstm'
+    GRU = 'gru'
+
+
+class TrainType(Enum):
+    TRAIN = 0
+    EVAL = 1
+    TRAIN_CHECKPOINT = 2
+
 
 class Config:
     def __init__(self):
         # base
-        self.train = True
+        self.train = TrainType.TRAIN
         self.collect = False
+        self.rnn_type = RnnType.LSTM
         self.namespace = 'bookinfo'
         self.nodes = None
         self.svcs = set()

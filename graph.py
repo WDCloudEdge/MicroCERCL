@@ -26,6 +26,8 @@ class EdgeType(Enum):
     INSTANCE_NODE_EDGE = 'instance-instance_locate-node'
     NODE_INSTANCE = 'node_impact'
     NODE_INSTANCE_EDGE = 'node-node_impact-instance'
+    INSTANCE_INSTANCE = 'instance_call'
+    INSTANCE_INSTANCE_EDGE = 'instance-instance_call-instance'
 
 
 class GraphIndex:
@@ -238,13 +240,23 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                 for key, (src_list, dst_list) in hg_data_dict.items()
             }
         )
+        if th.cuda.is_available():
+            _hg = _hg.to('cuda')
         for type in type_map:
             type_list = type_map[type]
             for node_index in type_list:
                 if 'feat' not in _hg.nodes[type].data:
-                    _hg.nodes[type].data['feat'] = th.zeros((_hg.number_of_nodes(type), graph.nodes[node_index.name]['data'].shape[0], graph.nodes[node_index.name]['data'].shape[1]), dtype=th.float32)
-                _hg.nodes[type].data['feat'][node_index.index] = th.tensor(graph.nodes[node_index.name]['data'].values,
-                                                                           dtype=th.float32)
+                    feat_zeros = th.zeros((_hg.number_of_nodes(type), graph.nodes[node_index.name]['data'].shape[0], graph.nodes[node_index.name]['data'].shape[1]), dtype=th.float32)
+                    if th.cuda.is_available():
+                        _hg.nodes[type].data['feat'] = feat_zeros.to('cuda')
+                    else:
+                        _hg.nodes[type].data['feat'] = feat_zeros
+                feat_data = th.tensor(graph.nodes[node_index.name]['data'].values,
+                                      dtype=th.float32)
+                if th.cuda.is_available():
+                    _hg.nodes[type].data['feat'][node_index.index] = feat_data.to('cuda')
+                else:
+                    _hg.nodes[type].data['feat'][node_index.index] = feat_data
         # 划分多中心子图
         center_subgraph: Dict[str, DGLHeteroGraph] = {}
         for center in center_index:
@@ -262,6 +274,8 @@ def get_edge_type(u_type, v_type):
         return EdgeType.INSTANCE_NODE.value
     if u_type == NodeType.NODE.value and v_type == NodeType.POD.value:
         return EdgeType.NODE_INSTANCE.value
+    if u_type == NodeType.POD.value and v_type == NodeType.POD.value:
+        return EdgeType.INSTANCE_INSTANCE.value
     else:
         pass
 
