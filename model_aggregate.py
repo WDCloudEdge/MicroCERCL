@@ -103,8 +103,9 @@ class AggrHGraphConvWindow(nn.Module):
                                     combinations(range(self.window_simple_size), self.num_heads)]
             for combination in combinations_numbers:
                 batch_sequence_list.append([input_data_list[idx] for idx in combination])
-            for batch_sequence in batch_sequence_list:
-                batch_sequence[1] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
+            for idx, batch_sequence in enumerate(batch_sequence_list):
+                # batch_sequence[1] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
+                input_data_list[combinations_numbers[idx][1]] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
         center_node_index: Dict[str, Set[str]] = {}
         graphs_anomaly_node_index = {}
         for center in self.graph.center_type_index:
@@ -135,7 +136,7 @@ class AggrHGraphConvWindow(nn.Module):
 
 class AggrHGraphConvWindows(nn.Module):
     def __init__(self, out_channel, hidden_channel, graphs: Dict[str, HeteroWithGraphIndex],
-                 rnn: RnnType = RnnType.LSTM):
+                 rnn: RnnType = RnnType.LSTM, attention: bool = False):
         super(AggrHGraphConvWindows, self).__init__()
         self.hidden_size = hidden_channel
         self.graph_size = len(graphs)
@@ -148,10 +149,10 @@ class AggrHGraphConvWindows(nn.Module):
                                     batch_first=True)
         self.time_metrics_layer_list = []
         for time in time_sorted:
-            self.time_metrics_layer_list.append(AggrHGraphConvWindow(64, self.hidden_size, graphs[time], 2, False, rnn))
+            self.time_metrics_layer_list.append(AggrHGraphConvWindow(64, self.hidden_size, graphs[time], 2, attention, rnn))
         self.linear = nn.Linear(self.hidden_size, 2)
         self.output_layer = nn.Softmax(dim=0)
-        self.activation = nn.ReLU()
+        self.activation = nn.LeakyReLU(negative_slope=0.01)
 
     def forward(self):
         input_data_list = []
@@ -193,16 +194,15 @@ class AggrHGraphConvWindows(nn.Module):
                 else:
                     window_graphs_anomaly_node_index_combine[ano] = idx_list
         # output = self.linear(self.rnn_layer(self.activation(th.cat(input_data_list, dim=0)))[0])
-        # output = self.linear(self.activation(self.rnn_layer(th.cat(input_data_list, dim=0))[0]))
-        output = self.linear(self.activation(th.cat(input_data_list, dim=0)))
+        output = self.linear(self.activation(self.rnn_layer(th.cat(input_data_list, dim=0))[0]))
         output = output.reshape(output.shape[0], -1)
-        return self.output_layer(torch.sum(output, dim=1, keepdim=True)), window_graphs_center_node_index, window_graphs_anomaly_node_index_combine
+        return torch.sum(output, dim=1, keepdim=True), window_graphs_center_node_index, window_graphs_anomaly_node_index_combine
 
 
 class AggrUnsupervisedGNN(nn.Module):
-    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM):
+    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM, attention: bool = False):
         super(AggrUnsupervisedGNN, self).__init__()
-        self.conv = AggrHGraphConvWindows(out_channel=out_channels, hidden_channel=hidden_size, graphs=graphs, rnn=rnn)
+        self.conv = AggrHGraphConvWindows(out_channel=out_channels, hidden_channel=hidden_size, graphs=graphs, rnn=rnn, attention=attention)
         self.criterion = nn.MSELoss()
 
     def forward(self):
@@ -225,5 +225,5 @@ class AggrUnsupervisedGNN(nn.Module):
         for anomaly in aggr_anomaly_index:
             if len(anomaly) > 0:
                 aggr_anomaly = aggr_feat[aggr_anomaly_index[anomaly]]
-                sum_criterion += self.criterion(aggr_anomaly, torch.ones_like(aggr_anomaly))
+                sum_criterion += self.criterion(aggr_anomaly, torch.zeros_like(aggr_anomaly))
         return sum_criterion

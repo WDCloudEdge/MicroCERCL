@@ -41,9 +41,9 @@ class EarlyStopping:
 
 # 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
 class UnsupervisedGNN(nn.Module):
-    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM):
+    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM, attention: bool = False):
         super(UnsupervisedGNN, self).__init__()
-        self.aggr_conv = AggrUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn)
+        self.aggr_conv = AggrUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn, attention=attention)
         self.time_conv = TimeUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn)
         self.epoch = 0
 
@@ -68,20 +68,22 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: TrainType = TrainType.EVAL, learning_rate=0.01, rnn: RnnType = RnnType.LSTM):
-    model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn)
+def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: TrainType = TrainType.EVAL, learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
+    model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
     if torch.cuda.is_available():
         model = model.to('cuda')
-    root_cause_file = 'label16' + '-' + rnn.value
-    root_cause = 'currencyservice-588fc9584d-cl9dm'
+    label = 'label11'
+    root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '')
+    model_file = 'model_weights' + '_' + label + '_' + rnn.value + ('_atten' if attention else '') + '.pth'
+    root_cause = 'productcatalogservice-5ff5f57dc8-mpw5r'
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
-        early_stopping = EarlyStopping(patience=3, delta=1e-4)
+        early_stopping = EarlyStopping(patience=5, delta=1e-5)
         if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
             if is_train == TrainType.TRAIN:
                 model.initialize_weights()
             elif is_train == TrainType.TRAIN_CHECKPOINT:
-                model.load_state_dict(torch.load(dir + '/model_weights.pth'))
+                model.load_state_dict(torch.load(dir + '/' + model_file))
             # wandb.init(project="MicroCERC", name="MicroCERC " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             # wandb.watch(model)
             optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -105,9 +107,9 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
                 if early_stopping.early_stop:
                     print(f"Early stopping with epoch: {epoch}, loss: {loss.item()}", file=output_file)
                     break
-            torch.save(model.state_dict(), dir + '/model_weights.pth')
+            torch.save(model.state_dict(), dir + '/' + model_file)
         elif is_train == TrainType.EVAL:
-            model.load_state_dict(torch.load(dir + '/model_weights.pth'))
+            model.load_state_dict(torch.load(dir + '/' + model_file))
         with th.no_grad():
             model.eval()
             time_sorted = sorted(graphs.keys())
@@ -143,8 +145,11 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
                 output = output.T.numpy().flatten().tolist()
                 for idx, score in enumerate(output):
                     s = output_score.get(total_index_node[idx], 0)
-                    output_score[total_index_node[idx]] = s + score
-            sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1], reverse=True))
+                    if s != 0:
+                        output_score[total_index_node[idx]] = (s + abs(score)) / 2
+                    else:
+                        output_score[total_index_node[idx]] = abs(score)
+            sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1]))
             top_k = 0
             is_top_k = False
             for key, value in list(sorted_dict.items()):
