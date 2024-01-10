@@ -14,15 +14,27 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
     call_data = pd.read_csv(file_dir + '/' + 'call.csv')
     anomaly_svc_calls, anomaly_call_time_series_index = birch_ad_with_smoothing(
         df_time_limit_normalization(call_data, begin_timestamp, end_timestamp), threshold=0.1, n=6)
-    anomaly_time_series = {**anomaly_time_series, **anomaly_call_time_series_index}
-    a_svc_calls = [a[:a.rfind('&')].split('_') for a in anomaly_svc_calls]
-    for a_svc in a_svc_calls:
-        anomalies.extend(a_svc)
+    anomaly_time_series_index_combine = {}
+    for node in anomaly_call_time_series_index:
+        callee = node[:node.rfind('&')].split('_')[1]
+        node_index = anomaly_time_series_index_combine.get(callee, [])
+        node_index.extend(anomaly_call_time_series_index[node])
+        anomaly_time_series_index_combine[callee] = node_index
+    anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
+    a_svc_calls = [a[:a.rfind('&')].split('_')[1] for a in anomaly_svc_calls]
+    anomalies.extend(a_svc_calls)
+    # for a_svc in a_svc_calls:
+    #     anomalies.extend(a_svc)
     # read svc latency data
     latency_data = pd.read_csv(file_dir + '/' + 'latency_instance.csv')
-    anomaly_svcs, anomaly_svc_time_series_index = birch_ad_with_smoothing(
+    anomaly_svcs, anomaly_latency_time_series_index = birch_ad_with_smoothing(
         df_time_limit_normalization(latency_data, begin_timestamp, end_timestamp), threshold=0.1, n=6)
-    anomaly_time_series = {**anomaly_time_series, **anomaly_svc_time_series_index}
+    for latency_node in anomaly_latency_time_series_index:
+        node = latency_node[:latency_node.rfind('&')]
+        node_index = anomaly_time_series_index_combine.get(node, [])
+        node_index.extend(anomaly_latency_time_series_index[latency_node])
+        anomaly_time_series_index_combine[node] = node_index
+    anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
     anomalies.extend([a_svc[:a_svc.rfind('&')] for a_svc in anomaly_svcs])
     # anomalies.extend(anomaly_svcs)
     # qps data
@@ -30,14 +42,22 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
     qps_source_data = pd.read_csv(qps_file_name)
     anomaly_qps, anomaly_qps_time_series_index = birch_ad_with_smoothing(
         df_time_limit_normalization(qps_source_data, begin_timestamp, end_timestamp))
-    anomaly_time_series = {**anomaly_time_series, **anomaly_qps_time_series_index}
+    for node in anomaly_qps_time_series_index:
+        node_index = anomaly_time_series_index_combine.get(node, [])
+        node_index.extend(anomaly_qps_time_series_index[node])
+        anomaly_time_series_index_combine[node] = node_index
+    anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
     anomalies.extend([a_svc for a_svc in anomaly_qps])
     # success rate data
     success_rate_file_name = file_dir + '/' + 'success_rate.csv'
     success_rate_source_data = pd.read_csv(success_rate_file_name)
     anomaly_success_rate, anomaly_success_rate_time_series_index = birch_ad_with_smoothing(
         df_time_limit_normalization(success_rate_source_data, begin_timestamp, end_timestamp))
-    anomaly_time_series = {**anomaly_time_series, **anomaly_success_rate_time_series_index}
+    for node in anomaly_success_rate_time_series_index:
+        node_index = anomaly_time_series_index_combine.get(node, [])
+        node_index.extend(anomaly_success_rate_time_series_index[node])
+        anomaly_time_series_index_combine[node] = node_index
+    anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
     anomalies.extend([a_svc for a_svc in anomaly_success_rate])
     # instances data
     instance_file_name = file_dir + '/' + 'instance.csv'
@@ -48,12 +68,11 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
     anomalies = list(set(anomalies))
     if 'istio-ingressgateway' in anomalies:
         anomalies.remove('istio-ingressgateway')
-    a_instance_time_series = {}
     for a_instance in anomalies_index:
-        a_i = a_instance_time_series.get(a_instance[:a_instance.rfind('&')], [])
+        a_i = anomaly_time_series_index_combine.get(a_instance[:a_instance.rfind('&')], [])
         a_i.extend(anomalies_index[a_instance])
-        a_instance_time_series[a_instance[:a_instance.rfind('&')]] = list(set(a_i))
-    anomaly_time_series = {**anomaly_time_series, **a_instance_time_series}
+        anomaly_time_series_index_combine[a_instance[:a_instance.rfind('&')]] = a_i
+    anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
     return anomalies, anomaly_time_series
 
 

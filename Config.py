@@ -19,7 +19,7 @@ class Config:
         self.train = TrainType.TRAIN
         self.collect = False
         self.rnn_type = RnnType.GRU
-        self.attention = True
+        self.attention = False
         self.namespace = 'bookinfo'
         self.nodes = None
         self.svcs = set()

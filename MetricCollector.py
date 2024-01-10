@@ -606,7 +606,8 @@ def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_win
                 if s in sn and not s == sn:
                     for tn in graph.nodes:
                         if t in tn and not t == tn:
-                            graph.add_edge(sn, tn)
+                            pass
+                            # graph.add_edge(sn, tn)
     graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
                                                   window_size)
     return graphs_time_window

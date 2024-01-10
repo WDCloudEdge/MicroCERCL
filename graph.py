@@ -45,15 +45,20 @@ class GraphIndex:
 
 class HeteroWithGraphIndex:
     def __init__(self, hetero_graph: DGLHeteroGraph, hetero_graph_index: GraphIndex, n_graph: nx.DiGraph,
-                 center_hetero_graph: Dict[str, DGLHeteroGraph], center_type_index,
-                 anomaly_index, anomaly_time_series_index):
+                 center_hetero_graph: Dict[str, DGLHeteroGraph], center_type_index, center_type_name,
+                 anomaly_index, anomaly_name, anomaly_time_series_index, anomaly_time_series,
+                 graph_index_time_map):
         self.hetero_graph = hetero_graph
         self.hetero_graph_index = hetero_graph_index
         self.n_graph = n_graph
         self.center_hetero_graph = center_hetero_graph
         self.center_type_index = center_type_index
+        self.center_type_name = center_type_name
         self.anomaly_index = anomaly_index
+        self.anomaly_name = anomaly_name
         self.anomaly_time_series_index = anomaly_time_series_index
+        self.anomaly_time_series = anomaly_time_series
+        self.graph_index_time_map = graph_index_time_map
 
 
 def combine_graph(graphs: [nx.DiGraph]) -> nx.DiGraph:
@@ -78,7 +83,8 @@ def combine_graph(graphs: [nx.DiGraph]) -> nx.DiGraph:
     return g
 
 
-def combine_timestamps_graph(graphs_at_timestamp: Dict[str, nx.DiGraph], namespace, topology_change_time_window_list, window_size=600) -> \
+def combine_timestamps_graph(graphs_at_timestamp: Dict[str, nx.DiGraph], namespace, topology_change_time_window_list,
+                             window_size=600) -> \
         Dict[str, nx.DiGraph]:
     combine_graphs: Dict[str, nx.DiGraph] = {}
     for i in range(len(topology_change_time_window_list) - 1):
@@ -181,11 +187,14 @@ def df_prefix_match(df: pd.DataFrame, prefix: str, stop_words: []) -> pd.DataFra
 
 
 def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], anomaly_nodes: Dict[str, List],
-           graphs_anomaly_time_series_index: Dict[str, List]) -> Dict[str, HeteroWithGraphIndex]:
+           graphs_anomaly_time_series_index: Dict[str, List],
+           anomaly_time_series: Dict[str, Dict[str, List[int]]],
+           graphs_index_time_map: Dict[str, Dict[int, str]]) -> Dict[str, HeteroWithGraphIndex]:
     hg_dict: Dict[str, HeteroWithGraphIndex] = {}
     for time_window in graphs:
         hg_data_dict = defaultdict(lambda: ([], []))
         center_index: Dict[str, Dict[str, List[int]]] = {}
+        center_name: Dict[str, Dict[str, List[str]]] = {}
         graph = graphs[time_window]
         index = graphs_index[time_window]
         graph_anomaly_time_series_index = graphs_anomaly_time_series_index[time_window]
@@ -198,7 +207,7 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
 
         type_map: Dict[str, Set[NodeIndex]] = {}
         node_exist: Set = set([])
-        anomaly_index = get_anomaly_index(index, anomaly_node, graph)
+        anomaly_index, anomaly_type_name = get_anomaly_index(index, anomaly_node, graph)
         for u, v, data in graph.edges(data=True):
             u_type = graph.nodes[u]['type']
             v_type = graph.nodes[v]['type']
@@ -210,12 +219,22 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                 c_list.append(index.index[v_type][v])
                 center_type_list[v_type] = list(set(c_list))
                 center_index[v_center] = center_type_list
+                center_type_name_list = center_name.get(v_center, {})
+                c_name_list = center_type_name_list.get(v_type, [])
+                c_name_list.append(v)
+                center_type_name_list[v_type] = list(set(c_name_list))
+                center_name[v_center] = center_type_name_list
             if len(u_center) != 0:
                 center_type_list = center_index.get(u_center, {})
                 c_list = center_type_list.get(u_type, [])
                 c_list.append(index.index[u_type][u])
                 center_type_list[u_type] = list(set(c_list))
                 center_index[u_center] = center_type_list
+                center_type_name_list = center_name.get(u_center, {})
+                c_name_list = center_type_name_list.get(u_type, [])
+                c_name_list.append(u)
+                center_type_name_list[u_type] = list(set(c_name_list))
+                center_name[u_center] = center_type_name_list
             # 判断是否跨网段边
             if len(v_center) != 0 and len(u_center) != 0 and u_center != v_center:
                 u_type = u_type + '&' + u_center
@@ -246,7 +265,8 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
             type_list = type_map[type]
             for node_index in type_list:
                 if 'feat' not in _hg.nodes[type].data:
-                    feat_zeros = th.zeros((_hg.number_of_nodes(type), graph.nodes[node_index.name]['data'].shape[0], graph.nodes[node_index.name]['data'].shape[1]), dtype=th.float32)
+                    feat_zeros = th.zeros((_hg.number_of_nodes(type), graph.nodes[node_index.name]['data'].shape[0],
+                                           graph.nodes[node_index.name]['data'].shape[1]), dtype=th.float32)
                     if th.cuda.is_available():
                         _hg.nodes[type].data['feat'] = feat_zeros.to('cuda')
                     else:
@@ -262,7 +282,9 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
         for center in center_index:
             center_type_list = center_index[center]
             center_subgraph[center] = _hg.subgraph({tp: list(center_type_list[tp]) for tp in center_type_list})
-        hg = HeteroWithGraphIndex(_hg, index, graph, center_subgraph, center_index, anomaly_index, graph_anomaly_time_series_index)
+        hg = HeteroWithGraphIndex(_hg, index, graph, center_subgraph, center_index, center_name, anomaly_index,
+                                  anomaly_type_name, graph_anomaly_time_series_index, anomaly_time_series[time_window],
+                                  graphs_index_time_map[time_window])
         hg_dict[time_window] = hg
     return hg_dict
 
@@ -280,8 +302,9 @@ def get_edge_type(u_type, v_type):
         pass
 
 
-def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = True):
+def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = False):
     anomaly_type_index = {}
+    anomaly_type_name = {}
     for anomaly in anomalies:
         if anomaly in graph.nodes:
             type = graph.nodes[anomaly]['type']
@@ -290,6 +313,11 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
             anomaly_type_list = anomaly_type_map.get(type, [])
             anomaly_type_list.append(index.index[type][anomaly])
             anomaly_type_map[type] = anomaly_type_list
+
+            anomaly_name_map = anomaly_type_name.get(anomaly_key, {})
+            anomaly_name_list = anomaly_name_map.get(type, [])
+            anomaly_name_list.append(anomaly)
+            anomaly_name_map[type] = anomaly_name_list
             if is_neighbor:
                 # 找到异常传播前继节点
                 predecessors = list(graph.predecessors(anomaly))
@@ -298,13 +326,19 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
                     anomaly_type_list = anomaly_type_map.get(type, [])
                     anomaly_type_list.append(index.index[type][n])
                     anomaly_type_map[type] = anomaly_type_list
+
+                    anomaly_name_list = anomaly_name_map.get(type, [])
+                    anomaly_name_list.append(n)
+                    anomaly_name_map[type] = anomaly_name_list
             anomaly_type_index[anomaly_key] = anomaly_type_map
-    return anomaly_type_index
+            anomaly_type_name[anomaly_key] = anomaly_name_map
+    return anomaly_type_index, anomaly_type_name
 
 
 def get_anomaly_time_window(anomalies, graph_time_window):
     for time_window in anomalies:
-        if graph_time_window.split('-')[0] >= time_window.split('-')[0] and graph_time_window.split('-')[1] <= time_window.split('-')[1]:
+        if graph_time_window.split('-')[0] >= time_window.split('-')[0] and graph_time_window.split('-')[1] <= \
+                time_window.split('-')[1]:
             return anomalies[time_window]
     return None
 

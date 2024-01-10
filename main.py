@@ -47,8 +47,8 @@ if __name__ == "__main__":
     # global_now_time = 1658479080
     # global_end_time = 1658479680
     # label11
-    # global_now_time = 1658480340
-    # global_end_time = 1658480940
+    global_now_time = 1658480340
+    global_end_time = 1658480940
     # label12
     # global_now_time = 1658481900
     # global_end_time = 1658482500
@@ -62,8 +62,8 @@ if __name__ == "__main__":
     # global_now_time = 1658484960
     # global_end_time = 1658485560
     # label16
-    global_now_time = 1658487540
-    global_end_time = 1658488140
+    # global_now_time = 1658487540
+    # global_end_time = 1658488140
     # label17
     # global_now_time = 1658489220
     # global_end_time = 1658489820
@@ -154,37 +154,54 @@ if __name__ == "__main__":
         # 合并混合部署图
         graphs_combine: Dict[str, nx.DiGraph] = combine_ns_graphs(graphs_time_window[time_window])
         graphs_anomaly_time_series_index = {}
+        graphs_anomaly_time_series_index_map = {}
+        graphs_index_time_map = {}
         for time in graphs_combine:
+            graph_index_time_map = {}
             graph = graphs_combine[time]
             begin_t = time.split('-')[0]
             end_t = time.split('-')[1]
+
+
+            def get_t(begin_t, t_index_time_window):
+                index = len(t_index_time_window.keys()) - 1
+                for i, t in enumerate(sorted(t_index_time_window.keys())):
+                    if int(begin_t) <= t:
+                        index = i
+                        break
+                return index
+
+
             graph_weight(begin_t, end_t, graph, base_dir)
             # graph dump
             graph_dump(graph, base_dir, begin_t + '-' + end_t)
+            for t in t_index_time_window:
+                if int(begin_t) <= t <= int(end_t):
+                    graph_index_time_map[t_index_time_window[t] - get_t(begin_t, t_index_time_window)] = t
+            graphs_index_time_map[time] = graph_index_time_map
             # 赋值异常时序索引
             anomalies_series_time_window = anomaly_time_series[time_window]
             a_t_index = []
+            anomaly_time_series_index = {}
             for anomaly in anomalies_series_time_window:
+                anomaly_t_index = []
                 anomaly_series_time_window = anomalies_series_time_window[anomaly]
                 if max(anomaly_series_time_window) < int(begin_t) or min(anomaly_series_time_window) > int(end_t):
                     continue
-
-                def get_t(begin_t, t_index_time_window):
-                    index = len(t_index_time_window.keys()) - 1
-                    for i, t in enumerate(sorted(t_index_time_window.keys())):
-                        if int(begin_t) <= t:
-                            index = i
-                            break
-                    return index
                 for t in anomaly_series_time_window:
                     if int(begin_t) <= t <= int(end_t):
                         a_t_index.append(t_index_time_window[t] - get_t(begin_t, t_index_time_window))
+                        anomaly_t_index.append(t_index_time_window[t] - get_t(begin_t, t_index_time_window))
+                anomaly_time_series_index[anomaly] = anomaly_t_index
             a_t_index = list(set(a_t_index))
             graphs_anomaly_time_series_index[time] = a_t_index
+            graphs_anomaly_time_series_index_map[time] = anomaly_time_series_index
 
         graphs_combine_index: Dict[str, GraphIndex] = {t_index: graph_index(graphs_combine[t_index]) for t_index in
                                                        graphs_combine}
         # 转化为dgl构建图网络栈
         hetero_graphs_combine: Dict[str, HeteroWithGraphIndex] = get_hg(graphs_combine, graphs_combine_index, anomalies,
-                                                                        graphs_anomaly_time_series_index)
+                                                                        graphs_anomaly_time_series_index,
+                                                                        graphs_anomaly_time_series_index_map
+                                                                        , graphs_index_time_map)
         train(hetero_graphs_combine, base_dir, config.train, rnn=config.rnn_type, attention=config.attention)

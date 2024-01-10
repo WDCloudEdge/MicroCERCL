@@ -14,7 +14,7 @@ from datetime import datetime
 
 
 class EarlyStopping:
-    def __init__(self, patience=5, delta=1e-6, max_loss=1):
+    def __init__(self, patience=5, delta=1e-6, max_loss=5, min_epoch=500):
         self.patience = patience
         self.delta = delta
         self.counter = 0
@@ -22,40 +22,59 @@ class EarlyStopping:
         self.early_stop = False
         self.output_list = []
         self.max_loss = max_loss
+        self.min_epoch = min_epoch
 
-    def __call__(self, val_loss, output):
-        if val_loss >= self.best_loss or val_loss > self.max_loss:
+    def __call__(self, val_loss, output, epoch):
+        if val_loss > self.max_loss or epoch < self.min_epoch:
             self.counter = 0
             self.output_list.clear()
-        elif val_loss < self.best_loss:
-            if self.best_loss - val_loss > self.delta:
-                self.counter = 0
-                self.output_list.clear()
-                self.best_loss = val_loss
-            else:
-                self.counter += 1
-                self.output_list.append(output)
-                if self.counter >= self.patience:
-                    self.early_stop = True
+        elif self.best_loss == float('inf'):
+            self.best_loss = val_loss
+        elif abs(self.best_loss - val_loss) < self.delta:
+            self.counter += 1
+            self.output_list.append(output)
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.counter = 0
+            self.output_list.clear()
+            self.best_loss = val_loss
 
 
 # 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
 class UnsupervisedGNN(nn.Module):
-    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM, attention: bool = False):
+    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM,
+                 attention: bool = False):
         super(UnsupervisedGNN, self).__init__()
-        self.aggr_conv = AggrUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn, attention=attention)
+        graph = graphs[next(iter(graphs))]
+        self.aggr_conv = AggrUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
+                                             attention=attention,
+                                             svc_feat_num=
+                                             graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
+                                             node_feat_num=
+                                             graph.hetero_graph.nodes[NodeType.NODE.value].data['feat'].shape[
+                                                 2],
+                                             instance_feat_num=
+                                             graph.hetero_graph.nodes[NodeType.POD.value].data['feat'].shape[2])
         self.time_conv = TimeUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn)
         self.epoch = 0
 
-    def forward(self):
-        aggr_feat, aggr_center_index, aggr_anomaly_index = self.aggr_conv()
-        time_series_feat, anomaly_time_series_index_list = self.time_conv()
-        return aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list
+    def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):
+        aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series = self.aggr_conv(
+            graphs)
+        # time_series_feat, anomaly_time_series_index_list = self.time_conv()
+        # return aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, time_series_feat, anomaly_time_series_index_list
+        return aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
 
-    def loss(self, aggr_feat, aggr_center_index, aggr_anomaly_index, time_feat, time_index):
-        if len(time_index) == 0 or len([item for sublist in time_index for item in sublist]) == 0:
-            return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index)
-        return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index) + self.time_conv.loss(time_feat, time_index)
+    # def loss(self, aggr_feat, aggr_center_index, aggr_anomaly_index, time_feat, time_index):
+    def loss(self, aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes,
+             window_anomaly_time_series):
+        return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index,
+                                   window_time_series_sizes, window_anomaly_time_series)
+        # if len(time_index) == 0 or len([item for sublist in time_index for item in sublist]) == 0:
+        #     return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index)
+        # return self.aggr_conv.loss(aggr_feat, aggr_center_index, aggr_anomaly_index) + self.time_conv.loss(time_feat,
+        #                                                                                                    time_index)
 
     def set_epoch(self, epoch):
         self.epoch = epoch
@@ -68,7 +87,8 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: TrainType = TrainType.EVAL, learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
+def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: TrainType = TrainType.EVAL,
+          learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
     model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
     if torch.cuda.is_available():
         model = model.to('cuda')
@@ -78,7 +98,7 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
     root_cause = 'productcatalogservice-5ff5f57dc8-mpw5r'
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
-        early_stopping = EarlyStopping(patience=5, delta=1e-5)
+        early_stopping = EarlyStopping(patience=5, delta=1e-12, min_epoch=2000)
         if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
             if is_train == TrainType.TRAIN:
                 model.initialize_weights()
@@ -91,11 +111,16 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
             for epoch in range(model.epoch, 10000, 1):
                 model.set_epoch(epoch)
                 optimizer.zero_grad()
-                aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list = model()
+                # aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, time_series_feat, anomaly_time_series_index_list = model(graphs)
+                aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series = model(
+                    graphs)
 
-                loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat, anomaly_time_series_index_list)
-
-                early_stopping(loss, model()[0])
+                # loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, time_series_feat,
+                #                   anomaly_time_series_index_list)
+                loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index,
+                                  window_time_series_sizes, window_anomaly_time_series)
+                # 计算节点概率
+                early_stopping(loss, aggr_feat, epoch)
                 loss.backward()
                 optimizer.step()
                 scheduler.step()
@@ -112,50 +137,85 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
             model.load_state_dict(torch.load(dir + '/' + model_file))
         with th.no_grad():
             model.eval()
-            time_sorted = sorted(graphs.keys())
-            total_num_list = []
-            total_index_node = {}
-            for idx, time in enumerate(time_sorted):
-                graph = graphs[time]
-                total_num = graph.hetero_graph.num_nodes()
-                total_num_list.append(total_num)
-                node_num = graph.hetero_graph.num_nodes(NodeType.NODE.value)
-                svc_num = graph.hetero_graph.num_nodes(NodeType.SVC.value)
-                pod_num = graph.hetero_graph.num_nodes(NodeType.POD.value)
-                graph_index = graph.hetero_graph_index
-                if idx == 0:
-                    padding_num = 0
-                else:
-                    padding_num = sum(total_num_list[:idx])
-                for i in range(total_num):
-                    if i < node_num:
-                        total_index_node[i + padding_num] = [key for key, value in graph_index.node_index.items() if value == i][0]
-                    elif node_num <= i < node_num + pod_num:
-                        total_index_node[i + padding_num] = [key for key, value in graph_index.pod_index.items() if value == i - node_num][0]
-                    elif node_num + pod_num <= i < total_num:
-                        total_index_node[i + padding_num] = [key for key, value in graph_index.svc_index.items() if value == i - node_num - pod_num][0]
+            # aggr_feat_list, aggr_center_index, aggr_anomaly_index, window_graphs_index, time_series_feat, anomaly_time_series_index_list = model(graphs)
+            aggr_feat_list, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series = model(
+                graphs)
+            # time_sorted = sorted(graphs.keys())
+            # total_num_list = []
+            # total_index_node = {}
+            # for idx, time in enumerate(time_sorted):
+            #     graph = graphs[time]
+            #     total_num = graph.hetero_graph.num_nodes()
+            #     total_num_list.append(total_num)
+            #     node_num = graph.hetero_graph.num_nodes(NodeType.NODE.value)
+            #     svc_num = graph.hetero_graph.num_nodes(NodeType.SVC.value)
+            #     pod_num = graph.hetero_graph.num_nodes(NodeType.POD.value)
+            #     graph_index = graph.hetero_graph_index
+            #     if idx == 0:
+            #         padding_num = 0
+            #     else:
+            #         padding_num = sum(total_num_list[:idx])
+            #     for i in range(total_num):
+            #         if i < node_num:
+            #             total_index_node[i + padding_num] = \
+            #                 [key for key, value in graph_index.node_index.items() if value == i][0]
+            #         elif node_num <= i < node_num + pod_num:
+            #             total_index_node[i + padding_num] = \
+            #                 [key for key, value in graph_index.pod_index.items() if value == i - node_num][0]
+            #         elif node_num + pod_num <= i < total_num:
+            #             total_index_node[i + padding_num] = \
+            #                 [key for key, value in graph_index.svc_index.items() if value == i - node_num - pod_num][0]
             if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
                 output_list = early_stopping.output_list
                 if len(output_list) == 0:
-                    output_list = [model()[0]]
+                    output_list = [aggr_feat_list]
             elif is_train == TrainType.EVAL:
-                output_list = [model()[0]]
+                output_list = [aggr_feat_list]
+            times = graphs.keys()
+            times_sorted = sorted(times)
             output_score = {}
-            for output in output_list:
-                output = output.T.numpy().flatten().tolist()
-                for idx, score in enumerate(output):
-                    s = output_score.get(total_index_node[idx], 0)
-                    if s != 0:
-                        output_score[total_index_node[idx]] = (s + abs(score)) / 2
-                    else:
-                        output_score[total_index_node[idx]] = abs(score)
-            sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1]))
+            output_score_node = {}
+            for aggr_feat_list in output_list:
+                for idx, window_graph_index in enumerate(window_graphs_index):
+                    window_graph_index_reverse = {window_graph_index[key]: key for key in window_graph_index}
+                    graph = graphs[times_sorted[idx]]
+                    graph_index_time_map = graph.graph_index_time_map
+                    aggr_feat = aggr_feat_list[idx]
+                    flattened_tensor = aggr_feat.flatten()
+                    sorted_indices = torch.argsort(flattened_tensor, descending=True)
+                    rows = sorted_indices // aggr_feat.size(1)
+                    cols = sorted_indices % aggr_feat.size(1)
+                    for i in range(len(rows)):
+                        node_time = window_graph_index_reverse[rows[i].item()] + '-' + str(graph_index_time_map[cols[i].item()])
+                        node_time_score = output_score.get(node_time, 0)
+                        node_time_score += flattened_tensor[sorted_indices[i].item()].item()
+                        output_score[node_time] = node_time_score
+                    output = torch.sum(aggr_feat, dim=1,
+                                       keepdim=True).T.numpy().flatten().tolist()
+                    for idx, score in enumerate(output):
+                        node = window_graph_index_reverse[idx]
+                        s = output_score_node.get(node, 0)
+                        if s != 0:
+                            output_score_node[node] = s + abs(score)
+                        else:
+                            output_score_node[node] = abs(score)
+            sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1], reverse=True))
+            sorted_dict_node = dict(sorted(output_score_node.items(), key=lambda item: item[1], reverse=True))
             top_k = 0
             is_top_k = False
             for key, value in list(sorted_dict.items()):
                 if not is_top_k:
                     top_k += 1
                 print(f"{key}: {value}", file=output_file)
-                if key == root_cause:
+                if ('-' in root_cause and key in root_cause) or root_cause in key:
+                    is_top_k = True
+            print(f"top_k: {top_k}", file=output_file)
+            top_k = 0
+            is_top_k = False
+            for key, value in list(sorted_dict_node.items()):
+                if not is_top_k:
+                    top_k += 1
+                print(f"{key}: {value}", file=output_file)
+                if ('-' in root_cause and key in root_cause) or root_cause in key:
                     is_top_k = True
             print(f"top_k: {top_k}", file=output_file)
