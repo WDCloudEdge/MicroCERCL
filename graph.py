@@ -377,3 +377,11 @@ def graph_load(base_dir: str, file_name: str) -> nx.DiGraph:
         except:
             pass
     return graph_new
+
+
+def calculate_graph_score(graph: nx.DiGraph, feature_summary, graph_index_map):
+    # 计算Pagerank得分
+    personalization = {node: feature_summary[graph_index_map[node]] for node in graph.nodes()}
+    personalization['192.168.31.101:9100'] = 0
+    pagerank_scores = nx.pagerank(graph, alpha=0.85, personalization=personalization)
+    return dict(sorted(pagerank_scores.items(), key=lambda item: item[1], reverse=True))

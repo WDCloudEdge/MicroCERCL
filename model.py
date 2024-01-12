@@ -2,13 +2,14 @@ import torch
 import torch as th
 import torch.nn as nn
 import torch.optim as optim
-from graph import HeteroWithGraphIndex, NodeType
+from graph import HeteroWithGraphIndex, NodeType, calculate_graph_score
 from typing import Dict
 from model_aggregate import AggrUnsupervisedGNN
 from model_time_series import TimeUnsupervisedGNN
 from Config import RnnType, TrainType
 from torch.nn import init
 from torch.optim.lr_scheduler import StepLR
+from util.utils import top_k_node, top_k_node_time_series
 import wandb
 from datetime import datetime
 
@@ -38,7 +39,8 @@ class EarlyStopping:
         else:
             self.counter = 0
             self.output_list.clear()
-            self.best_loss = val_loss
+            if val_loss < self.best_loss:
+                self.best_loss = val_loss
 
 
 # 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
@@ -87,15 +89,17 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: TrainType = TrainType.EVAL,
+def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], dir: str = '',
+          is_train: TrainType = TrainType.EVAL,
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
     model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
     if torch.cuda.is_available():
         model = model.to('cuda')
-    label = 'label11'
-    root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '')
-    model_file = 'model_weights' + '_' + label + '_' + rnn.value + ('_atten' if attention else '') + '.pth'
-    root_cause = 'productcatalogservice-5ff5f57dc8-mpw5r'
+    label = label
+    root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '') + '_time_series'
+    model_file = 'model_weights' + '_' + label + '_' + rnn.value + (
+        '_atten' if attention else '') + '_time_series' + '.pth'
+    root_cause = root_cause
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
         early_stopping = EarlyStopping(patience=5, delta=1e-12, min_epoch=2000)
@@ -119,7 +123,6 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
                 #                   anomaly_time_series_index_list)
                 loss = model.loss(aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index,
                                   window_time_series_sizes, window_anomaly_time_series)
-                # 计算节点概率
                 early_stopping(loss, aggr_feat, epoch)
                 loss.backward()
                 optimizer.step()
@@ -175,6 +178,17 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
             times_sorted = sorted(times)
             output_score = {}
             output_score_node = {}
+            # 如果是单图，将aggr_feat按照图节点索引，将特征还原到图上
+            if aggr_feat_list.shape[0] == 1:
+                output = aggr_feat_list[0]
+                window_graph_index = window_graphs_index[0]
+                graph = graphs[times_sorted[0]]
+                n_graph = graph.n_graph.copy()
+                node_features = {}
+                for i in range(output.shape[0]):
+                    node_features[i] = torch.sum(output[0]).item()
+                sorted_dict_node_pagerank = calculate_graph_score(n_graph, node_features, window_graph_index)
+                top_k_node(sorted_dict_node_pagerank, root_cause, output_file)
             for aggr_feat_list in output_list:
                 for idx, window_graph_index in enumerate(window_graphs_index):
                     window_graph_index_reverse = {window_graph_index[key]: key for key in window_graph_index}
@@ -186,7 +200,8 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
                     rows = sorted_indices // aggr_feat.size(1)
                     cols = sorted_indices % aggr_feat.size(1)
                     for i in range(len(rows)):
-                        node_time = window_graph_index_reverse[rows[i].item()] + '-' + str(graph_index_time_map[cols[i].item()])
+                        node_time = window_graph_index_reverse[rows[i].item()] + '-' + str(
+                            graph_index_time_map[cols[i].item()])
                         node_time_score = output_score.get(node_time, 0)
                         node_time_score += flattened_tensor[sorted_indices[i].item()].item()
                         output_score[node_time] = node_time_score
@@ -201,21 +216,5 @@ def train(graphs: Dict[str, HeteroWithGraphIndex], dir: str = '', is_train: Trai
                             output_score_node[node] = abs(score)
             sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1], reverse=True))
             sorted_dict_node = dict(sorted(output_score_node.items(), key=lambda item: item[1], reverse=True))
-            top_k = 0
-            is_top_k = False
-            for key, value in list(sorted_dict.items()):
-                if not is_top_k:
-                    top_k += 1
-                print(f"{key}: {value}", file=output_file)
-                if ('-' in root_cause and key in root_cause) or root_cause in key:
-                    is_top_k = True
-            print(f"top_k: {top_k}", file=output_file)
-            top_k = 0
-            is_top_k = False
-            for key, value in list(sorted_dict_node.items()):
-                if not is_top_k:
-                    top_k += 1
-                print(f"{key}: {value}", file=output_file)
-                if ('-' in root_cause and key in root_cause) or root_cause in key:
-                    is_top_k = True
-            print(f"top_k: {top_k}", file=output_file)
+            top_k_node_time_series(sorted_dict, root_cause, output_file)
+            top_k_node(sorted_dict_node, root_cause, output_file)

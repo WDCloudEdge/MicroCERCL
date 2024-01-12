@@ -7,6 +7,7 @@ from util.KubernetesClient import KubernetesClient
 import networkx as nx
 from typing import Dict, List, Tuple
 from graph import combine_timestamps_graph, NodeType, graph_load
+import random
 
 
 def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
@@ -606,8 +607,10 @@ def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_win
                 if s in sn and not s == sn:
                     for tn in graph.nodes:
                         if t in tn and not t == tn:
-                            pass
-                            # graph.add_edge(sn, tn)
+                            # pass
+                            random_number = random.random()
+                            if random_number > 0.5:
+                                graph.add_edge(sn, tn)
     graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
                                                   window_size)
     return graphs_time_window

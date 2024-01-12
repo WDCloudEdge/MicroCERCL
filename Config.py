@@ -18,7 +18,7 @@ class Config:
         # base
         self.train = TrainType.TRAIN
         self.collect = False
-        self.rnn_type = RnnType.GRU
+        self.rnn_type = RnnType.LSTM
         self.attention = False
         self.namespace = 'bookinfo'
         self.nodes = None

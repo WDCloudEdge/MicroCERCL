@@ -65,11 +65,37 @@ def df_time_limit(df, begin_timestamp, end_timestamp):
             end_index = index
             break
     if max_timestamp < int(end_timestamp):
-        end_index = df.shape[0]
-    df = df.loc[begin_index:end_index]
+        end_index = df.shape[0] + 1
+    if int(df.loc[end_index]['timestamp']) == int(end_timestamp):
+        end_index += 1
+    df = df.loc[begin_index:end_index - 1]
     df = df.reset_index(drop=True)
     return df
 
 
 def df_time_limit_normalization(df, begin_timestamp, end_timestamp):
     return normalize_dataframe(df_time_limit(df, begin_timestamp, end_timestamp).fillna(0))
+
+
+def top_k_node(sorted_dict_node, root_cause, output_file):
+    top_k = 0
+    is_top_k = False
+    for key, value in list(sorted_dict_node.items()):
+        if not is_top_k:
+            top_k += 1
+        print(f"{key}: {value}", file=output_file)
+        if ('-' in root_cause and key in root_cause) or root_cause in key:
+            is_top_k = True
+    print(f"top_k: {top_k}", file=output_file)
+
+
+def top_k_node_time_series(sorted_dict_node_time_series, root_cause, output_file):
+    top_k = 0
+    is_top_k = False
+    for key, value in list(sorted_dict_node_time_series.items()):
+        if not is_top_k:
+            top_k += 1
+        print(f"{key}: {value}", file=output_file)
+        if ('-' in root_cause and key[:key.rfind('-')] in root_cause) or root_cause in key[:key.rfind('-')]:
+            is_top_k = True
+    print(f"top_k: {top_k}", file=output_file)
