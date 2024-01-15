@@ -192,21 +192,21 @@ def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], 
             for aggr_feat_list in output_list:
                 for idx, window_graph_index in enumerate(window_graphs_index):
                     window_graph_index_reverse = {window_graph_index[key]: key for key in window_graph_index}
-                    graph = graphs[times_sorted[idx]]
-                    graph_index_time_map = graph.graph_index_time_map
-                    aggr_feat = aggr_feat_list[idx]
-                    flattened_tensor = aggr_feat.flatten()
-                    sorted_indices = torch.argsort(flattened_tensor, descending=True)
-                    rows = sorted_indices // aggr_feat.size(1)
-                    cols = sorted_indices % aggr_feat.size(1)
-                    for i in range(len(rows)):
-                        node_time = window_graph_index_reverse[rows[i].item()] + '-' + str(
-                            graph_index_time_map[cols[i].item()])
-                        node_time_score = output_score.get(node_time, 0)
-                        node_time_score += flattened_tensor[sorted_indices[i].item()].item()
-                        output_score[node_time] = node_time_score
-                    output = torch.sum(aggr_feat, dim=1,
-                                       keepdim=True).T.numpy().flatten().tolist()
+                    # graph = graphs[times_sorted[idx]]
+                    # graph_index_time_map = graph.graph_index_time_map
+                    # aggr_feat = aggr_feat_list[idx]
+                    # flattened_tensor = aggr_feat.flatten()
+                    # sorted_indices = torch.argsort(flattened_tensor, descending=True)
+                    # rows = sorted_indices // aggr_feat.size(1)
+                    # cols = sorted_indices % aggr_feat.size(1)
+                    # for i in range(len(rows)):
+                    #     node_time = window_graph_index_reverse[rows[i].item()] + '-' + str(
+                    #         graph_index_time_map[cols[i].item()])
+                    #     node_time_score = output_score.get(node_time, 0)
+                    #     node_time_score += flattened_tensor[sorted_indices[i].item()].item()
+                    #     output_score[node_time] = node_time_score
+                    # output = torch.sum(aggr_feat, dim=1,
+                    #                    keepdim=True).T.numpy().flatten().tolist()
                     for idx, score in enumerate(output):
                         node = window_graph_index_reverse[idx]
                         s = output_score_node.get(node, 0)

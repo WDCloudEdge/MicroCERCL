@@ -180,10 +180,10 @@ class HeteroGlobalAttentionPooling(nn.Module):
             graph.ndata.pop("r")
             time_series_size = gate.shape[1]
             if get_attention:
-                attention_scores = th.sum(gate, dim=-1)
+                attention_scores = torch.max(input=gate, dim=1)[0]
                 attention_scores[index[next(iter(h_graph_index.hetero_graph_index.node_index))]] = 0
-                return readout, index, time_series_size, self.activation(attention_scores.view(-1)).view(attention_scores.shape[0], attention_scores.shape[1])
-                # return readout, index, time_series_size, attention_scores
+                # return readout, index, time_series_size, self.activation(attention_scores.view(-1)).view(attention_scores.shape[0], attention_scores.shape[1])
+                return readout, index, time_series_size, attention_scores
             else:
                 return readout, index, time_series_size
 
@@ -344,7 +344,8 @@ class AggrUnsupervisedGNN(nn.Module):
                     aggr_anomaly_nodes_index = sorted(anomaly_index_combine[anomaly])
                     # aggr_anomaly_index = window_graphs_index[idx][anomaly[anomaly.find('-') + 1:]]
                     aggr_anomaly_time_series_index = window_anomaly_time_series[idx][anomaly[anomaly.find('-') + 1:]]
-                    rate = 1 / len(aggr_anomaly_nodes_index) / len(aggr_anomaly_time_series_index)
+                    # rate = 1 / len(aggr_anomaly_nodes_index) / len(aggr_anomaly_time_series_index)
+                    rate = 1 / len(aggr_anomaly_nodes_index)
                     # rate = aggr_feat_idx.max().item()
                     aggr_anomaly_time_series_index_map = {}
                     for time_series_index in aggr_anomaly_time_series_index:
@@ -359,10 +360,11 @@ class AggrUnsupervisedGNN(nn.Module):
                     for i in range(rows):
                         element = index_matrix[i]
                         count = aggr_anomaly_time_series_index_map[element[1].item()]
-                        aggr_feat_label_weight[element[0], element[1]] = count
-                    aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = rate
+                        # aggr_feat_label_weight[element[0], element[1]] = count
+                        aggr_feat_label_weight[element[0]] = rate
+                    # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = rate
                     # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = 0
                     # sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label * aggr_feat_label_weight)
-                    sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label * aggr_feat_label_weight)
+                    sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label_weight)
                     # sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label)
         return sum_criterion
