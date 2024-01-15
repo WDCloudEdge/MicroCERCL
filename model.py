@@ -191,6 +191,7 @@ def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], 
                 top_k_node(sorted_dict_node_pagerank, root_cause, output_file)
             for aggr_feat_list in output_list:
                 for idx, window_graph_index in enumerate(window_graphs_index):
+                    output = aggr_feat_list[idx]
                     window_graph_index_reverse = {window_graph_index[key]: key for key in window_graph_index}
                     # graph = graphs[times_sorted[idx]]
                     # graph_index_time_map = graph.graph_index_time_map
