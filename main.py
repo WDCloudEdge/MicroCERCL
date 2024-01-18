@@ -118,7 +118,7 @@ if __name__ == "__main__":
                 data_folder = base_dir + '/' + ns
                 time_key = str(time_pair[0]) + '-' + str(time_pair[1])
                 anomaly_list = anomalies.get(time_key, [])
-                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(data_folder, time_pair[0], time_pair[1])
+                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, time_pair[0], time_pair[1])
                 anomaly_list.extend(anomalies_ns)
                 anomalies[time_key] = anomaly_list
                 anomaly_time_series_list = anomaly_time_series.get(time_key, {})

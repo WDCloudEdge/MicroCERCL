@@ -6,7 +6,7 @@ import pandas as pd
 from util.utils import df_time_limit_normalization, df_time_limit, normalize_series, time_string_2_timestamp
 
 
-def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
+def get_anomaly_by_df(base_dir, file_dir, begin_timestamp, end_timestamp):
     anomalies = []
     # todo 统计时间戳的严重程度
     anomaly_time_series = {}
@@ -73,6 +73,7 @@ def get_anomaly_by_df(file_dir, begin_timestamp, end_timestamp):
         a_i.extend(anomalies_index[a_instance])
         anomaly_time_series_index_combine[a_instance[:a_instance.rfind('_')]] = a_i
     anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
+    record_anomalies(anomalies, anomalies_index, base_dir)
     return anomalies, anomaly_time_series
 
 
@@ -121,7 +122,7 @@ def birch_ad_with_smoothing_series(series, threshold=0.1, smoothing_window=3, n=
     if std_dev > threshold:
         mean_vector = np.mean(X, axis=0)
         distances_to_cluster_centers = pairwise_distances(X, [mean_vector]).flatten()
-        if std_dev > 3 * threshold:
+        if std_dev > 2 * threshold:
             n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 2 * std_dev)[0]
         else:
             n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 3 * std_dev)[0]
@@ -172,3 +173,10 @@ def get_timestamp_index(df):
                 df_index_time[t_index] = t
             break
     return df_time_index, df_index_time
+
+
+def record_anomalies(anomalies, anomalies_index, dir):
+    with open(dir + '/result-anomaly_detection.log', "a") as output_file:
+        print(anomalies, file=output_file)
+        print(anomalies_index, file=output_file)
+
