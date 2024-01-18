@@ -96,13 +96,13 @@ def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], 
     if torch.cuda.is_available():
         model = model.to('cuda')
     label = label
-    root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '') + '_time_series'
+    root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '')
     model_file = 'model_weights' + '_' + label + '_' + rnn.value + (
-        '_atten' if attention else '') + '_time_series' + '.pth'
+        '_atten' if attention else '') + '.pth'
     root_cause = root_cause
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
-        early_stopping = EarlyStopping(patience=5, delta=1e-12, min_epoch=2000)
+        early_stopping = EarlyStopping(patience=5, delta=1e-10, min_epoch=2000)
         if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
             if is_train == TrainType.TRAIN:
                 model.initialize_weights()
@@ -176,7 +176,7 @@ def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], 
                 output_list = [aggr_feat_list]
             times = graphs.keys()
             times_sorted = sorted(times)
-            output_score = {}
+            # output_score = {}
             output_score_node = {}
             # 如果是单图，将aggr_feat按照图节点索引，将特征还原到图上
             if aggr_feat_list.shape[0] == 1:
@@ -212,10 +212,10 @@ def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], 
                         node = window_graph_index_reverse[idx]
                         s = output_score_node.get(node, 0)
                         if s != 0:
-                            output_score_node[node] = s + abs(score)
+                            output_score_node[node] = s + abs(score.item())
                         else:
-                            output_score_node[node] = abs(score)
-            sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1], reverse=True))
+                            output_score_node[node] = abs(score.item())
+            # sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1], reverse=True))
             sorted_dict_node = dict(sorted(output_score_node.items(), key=lambda item: item[1], reverse=True))
-            top_k_node_time_series(sorted_dict, root_cause, output_file)
+            # top_k_node_time_series(sorted_dict, root_cause, output_file)
             top_k_node(sorted_dict_node, root_cause, output_file)

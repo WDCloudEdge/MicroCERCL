@@ -13,80 +13,44 @@ from anomaly_detection import get_timestamp_index
 import pandas as pd
 
 if __name__ == "__main__":
-    # namespaces = ['bookinfo', 'hipster', 'hipster2', 'sock-shop', 'horsecoder-test', 'horsecoder-minio']
-    namespaces = ['hipster']
+    namespaces = ['bookinfo', 'hipster', 'hipster2', 'cloud-sock-shop', 'horsecoder-test']
     config = Config()
 
 
     class Simple:
-        def __init__(self, global_now_time, global_end_time, label, root_cause):
+        def __init__(self, global_now_time, global_end_time, label, root_cause, dir):
             self.global_now_time = global_now_time
             self.global_end_time = global_end_time
             self.label = label
             self.root_cause = root_cause
+            self.dir = dir
 
 
     simples: List[Simple] = [
         Simple(
-            1658466960, 1658467560, 'label1', 'cartservice'
+            1705125240, 1705125960, 'label1', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-1',
         ),
         Simple(
-            1658468340, 1658468940, 'label2', 'currencyservice-588fc9584d-cl9dm'
+            1705126080, 1705126800, 'label2', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-2'
         ),
         Simple(
-            1658470140, 1658470740, 'label3', 'emailservice'
+            1705126920, 1705127640, 'label3', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-3'
         ),
         Simple(
-            1658472240, 1658472840, 'label4', 'frontend-875b86bb8-lq7z8'
+            1705129320, 1705130040, 'label5', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-2'
         ),
         Simple(
-            1658473440, 1658474040, 'label5', 'paymentservice-6879f6c8c4-8pbjc'
+            1705130160, 1705130880, 'label6', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-3'
         ),
         Simple(
-            1658474580, 1658475180, 'label6', 'recommendationservice'
+            1705131180, 1705131900, 'label7', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-1'
         ),
         Simple(
-            1658475840, 1658476440, 'label7', 'shippingservice-589dc45c5d-sfzzg'
+            1705132020, 1705132740, 'label8', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-2'
         ),
         Simple(
-            1658477040, 1658477640, 'label8', 'shippingservice-589dc45c5d-sfzzg'
-        ),
-        Simple(
-            1658478120, 1658478720, 'label9', 'shippingservice-589dc45c5d-sfzzg'
-        ),
-        Simple(
-            1658479080, 1658479680, 'label10', 'recommendationservice-689548cfbd-ml8h2'
-        ),
-        Simple(
-            1658480340, 1658480940, 'label11', 'productcatalogservice-5ff5f57dc8-mpw5r'
-        ),
-        Simple(
-            1658481900, 1658482500, 'label12', 'paymentservice'
-        ),
-        Simple(
-            1658482920, 1658483520, 'label13', 'paymentservice'
-        ),
-        Simple(
-            1658484120, 1658484720, 'label14', 'emailservice-8848674-b7vr4'
-        ),
-        Simple(
-            1658484960, 1658485560, 'label15', 'emailservice-8848674-b7vr4'
-        ),
-        Simple(
-            1658487540, 1658488140, 'label16', 'currencyservice-588fc9584d-cl9dm'
-        ),
-        Simple(
-            1658489220, 1658489820, 'label17', 'currencyservice-588fc9584d-cl9dm'
-        ),
-        Simple(
-            1658490300, 1658490900, 'label18', 'checkoutservice-7d8cb45794-vfnmh'
-        ),
-        Simple(
-            1658493360, 1658493960, 'label19', 'cartservice-75d494679c-vfldf'
-        ),
-        Simple(
-            1658494740, 1658495340, 'label20', 'cartservice-75d494679c-qdl5c'
-        ),
+            1705132860, 1705133580, 'label9', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-3'
+        )
     ]
     for simple in simples:
         global_now_time = simple.global_now_time
@@ -99,7 +63,7 @@ if __name__ == "__main__":
 
         folder = '.'
         graphs_time_window: Dict[str, Dict[str, nx.DiGraph]] = {}
-        base_dir = './data/' + str(config.dir)
+        base_dir = './data/' + str(simple.dir)
         time_pair_list = []
         time_pair_index = {}
         now_time = global_now_time
@@ -133,11 +97,14 @@ if __name__ == "__main__":
                 config.start = time_pair[0]
                 config.end = time_pair[1]
                 print('第' + str(count) + '次获取 [' + config.namespace + '] 数据')
-                graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, base_dir,
+                graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, data_folder,
                                                                                  topology_change_time_window_list,
                                                                                  config.window_size, config.collect)
-                graphs_time_window[str(time_pair[0]) + '-' + str(time_pair[1])] = {**graphs_time_window,
-                                                                                   **graphs_ns_time_window}
+                graph_time_key = str(time_pair[0]) + '-' + str(time_pair[1])
+                if graph_time_key not in graphs_time_window:
+                    graphs_time_window[graph_time_key] = graphs_ns_time_window
+                else:
+                    graphs_time_window[graph_time_key].update(graphs_ns_time_window)
                 config.pods.clear()
                 count += 1
         config.start = global_now_time
@@ -164,7 +131,7 @@ if __name__ == "__main__":
                 graph: nx.DiGraph = graphs_time_window[time_window][graph_time_window]
                 begin_t = graph_time_window.split('-')[0]
                 end_t = graph_time_window.split('-')[1]
-                ns = graph_time_window.split('-')[2]
+                ns = graph_time_window[graph_time_window.index(end_t) + len(end_t) + 1:]
                 graph_weight_ns(begin_t, end_t, graph, base_dir, ns)
             # 合并混合部署图
             graphs_combine: Dict[str, nx.DiGraph] = combine_ns_graphs(graphs_time_window[time_window])
@@ -181,7 +148,7 @@ if __name__ == "__main__":
                 def get_t(begin_t, t_index_time_window):
                     index = len(t_index_time_window.keys()) - 1
                     for i, t in enumerate(sorted(t_index_time_window.keys())):
-                        if int(begin_t) <= t:
+                        if int(begin_t) <= time_string_2_timestamp(t):
                             index = i
                             break
                     return index
@@ -191,7 +158,7 @@ if __name__ == "__main__":
                 # graph dump
                 graph_dump(graph, base_dir, begin_t + '-' + end_t)
                 for t in t_index_time_window:
-                    if int(begin_t) <= t <= int(end_t):
+                    if int(begin_t) <= time_string_2_timestamp(t) <= int(end_t):
                         graph_index_time_map[t_index_time_window[t] - get_t(begin_t, t_index_time_window)] = t
                 graphs_index_time_map[time_combine] = graph_index_time_map
                 # 赋值异常时序索引
@@ -201,12 +168,13 @@ if __name__ == "__main__":
                 for anomaly in anomalies_series_time_window:
                     anomaly_t_index = []
                     anomaly_series_time_window = anomalies_series_time_window[anomaly]
+                    anomaly_series_time_window = [time_string_2_timestamp(a) for a in anomaly_series_time_window]
                     if max(anomaly_series_time_window) < int(begin_t) or min(anomaly_series_time_window) > int(end_t):
                         continue
                     for t in anomaly_series_time_window:
                         if int(begin_t) <= t <= int(end_t):
-                            a_t_index.append(t_index_time_window[t] - get_t(begin_t, t_index_time_window))
-                            anomaly_t_index.append(t_index_time_window[t] - get_t(begin_t, t_index_time_window))
+                            a_t_index.append(t_index_time_window[timestamp_2_time_string(t)] - get_t(begin_t, t_index_time_window))
+                            anomaly_t_index.append(t_index_time_window[timestamp_2_time_string(t)] - get_t(begin_t, t_index_time_window))
                     anomaly_time_series_index[anomaly] = anomaly_t_index
                 a_t_index = list(set(a_t_index))
                 graphs_anomaly_time_series_index[time_combine] = a_t_index

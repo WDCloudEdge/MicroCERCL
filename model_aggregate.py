@@ -30,12 +30,13 @@ class AggrHGraphConvLayer(nn.Module):
             EdgeType.SVC_CALL_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel),
             EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
             EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, out_channel),
-            EdgeType.INSTANCE_INSTANCE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel)
+            EdgeType.INSTANCE_INSTANCE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
+            EdgeType.SVC_INSTANCE_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel)
         },
             aggregate='mean')
         if th.cuda.is_available():
             self.conv = self.conv.to('cuda')
-        self.activation = nn.LeakyReLU()
+        self.activation = nn.ReLU()
 
     def forward(self, graph: HeteroWithGraphIndex, feat_dict):
         dict = self.conv(graph.hetero_graph, feat_dict)
@@ -68,7 +69,7 @@ class AggrHGraphConvWindow(nn.Module):
         self.instance_feat_num = instance_feat_num
         self.node_feat_num = node_feat_num
         self.is_attention = is_attention
-        # self.activation = nn.LeakyReLU(negative_slope=1e-2)
+        self.activation = nn.ReLU()
         if is_attention:
             self.num_heads = num_heads
             self.attention = nn.MultiheadAttention(self.hidden_size, num_heads)
@@ -142,7 +143,7 @@ class AggrHGraphConvWindow(nn.Module):
         hetero_graph_feat_dict = {NodeType.NODE.value: graph_time_series_feat[:node_num],
                                   NodeType.POD.value: graph_time_series_feat[node_num:node_num + instance_num],
                                   NodeType.SVC.value: graph_time_series_feat[node_num + instance_num:]}
-        return hetero_graph_feat_dict, graph_time_series_feat, graph.center_type_name, graph.anomaly_name
+        return hetero_graph_feat_dict, self.activation(graph_time_series_feat), graph.center_type_name, graph.anomaly_name
 
 
 class HeteroGlobalAttentionPooling(nn.Module):
@@ -181,7 +182,6 @@ class HeteroGlobalAttentionPooling(nn.Module):
             time_series_size = gate.shape[1]
             if get_attention:
                 attention_scores = torch.max(input=gate, dim=1)[0]
-                attention_scores[index[next(iter(h_graph_index.hetero_graph_index.node_index))]] = 0
                 # return readout, index, time_series_size, self.activation(attention_scores.view(-1)).view(attention_scores.shape[0], attention_scores.shape[1])
                 return readout, index, time_series_size, attention_scores
             else:
@@ -204,7 +204,7 @@ class AggrHGraphConvWindows(nn.Module):
                                                       node_feat_num, 2, attention, rnn)
         self.linear = nn.Linear(self.hidden_size, 1)
         self.output_layer = nn.Softmax(dim=0)
-        self.activation = nn.LeakyReLU(negative_slope=0.01)
+        self.activation = nn.ReLU()
         # self.pooling = dglnn.GlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, out_channel))
         self.pooling = HeteroGlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, out_channel))
 
@@ -282,11 +282,13 @@ class AggrHGraphConvWindows(nn.Module):
         #         else:
         #             window_graphs_anomaly_node_index_combine[ano] = idx_list
         # output = self.linear(self.rnn_layer(self.activation(th.cat(input_data_list, dim=0)))[0])
-        output = self.linear(self.activation(self.rnn_layer(self.activation(th.stack(output_data_list, dim=0)))[0]))
+        output = self.activation(self.linear(self.rnn_layer(th.stack(output_data_list, dim=0))[0]))
         # output = self.linear(self.rnn_layer(th.stack(output_data_list, dim=0))[0])
         output = output.reshape(output.shape[0], -1)
         return self.output_layer(torch.sum(output, dim=1,
                          keepdim=True)).T * th.stack(atten_sorted, dim=0), window_graphs_center_node_index, window_graphs_anomaly_node_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
+        # return torch.sum(output, dim=1, keepdim=True).T * th.stack(atten_sorted,
+        #                                                            dim=0), window_graphs_center_node_index, window_graphs_anomaly_node_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
 
 
 class AggrUnsupervisedGNN(nn.Module):
@@ -298,15 +300,17 @@ class AggrUnsupervisedGNN(nn.Module):
                                           svc_feat_num=svc_feat_num, instance_feat_num=instance_feat_num,
                                           node_feat_num=node_feat_num, rnn=rnn,
                                           attention=attention)
-        # self.criterion = nn.MSELoss()
-        self.criterion = nn.L1Loss()
+        self.criterion = nn.MSELoss()
+        # self.criterion = nn.L1Loss()
         # self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):
-        aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series = self.conv(graphs)
+        aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series = self.conv(
+            graphs)
         return aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
 
-    def loss(self, aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series):
+    def loss(self, aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes,
+             window_anomaly_time_series):
         aggr_index_combine_list = []
         for aggr in aggr_center_index:
             anomaly_index_combine = {}
@@ -324,7 +328,6 @@ class AggrUnsupervisedGNN(nn.Module):
                 aggr_center = aggr_feat_idx[sorted(anomaly_index_combine[center])]
                 aggr_mean = th.mean(aggr_center).item()
                 mean = torch.full_like(aggr_center, aggr_mean)
-                mean[22] = 0
                 sum_criterion += self.criterion(aggr_center, mean)
 
         # anomaly_aggr_index_combine_list = []
@@ -355,7 +358,8 @@ class AggrUnsupervisedGNN(nn.Module):
                     aggr_feat_label = torch.zeros_like(aggr_feat_idx)
                     # aggr_feat_label = aggr_feat_idx.clone()
                     aggr_feat_label_weight = torch.zeros_like(aggr_feat_idx)
-                    index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index), torch.tensor(aggr_anomaly_time_series_index))
+                    index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index),
+                                                        torch.tensor(aggr_anomaly_time_series_index))
                     rows, cols = index_matrix.shape
                     for i in range(rows):
                         element = index_matrix[i]

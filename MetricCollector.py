@@ -16,7 +16,14 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
     svc_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     pod_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     path = os.path.join(_dir, 'graph.csv')
-    k8s_nodes = [Node('192.168.31.101:9100', '192.168.31.101', '192.168.31.101:9100', '', 'Ready', 'cloud')]
+    k8s_nodes = [Node('izbp193ioajdcnpofhlr1hz', '172.26.146.178', 'izbp193ioajdcnpofhlr1hz', '', 'Ready', 'cloud'),
+                 Node('izbp16opgy3xucvexwqp9dz', '172.23.182.14', 'izbp16opgy3xucvexwqp9dz', '', 'Ready', 'cloud'),
+                 Node('izbp1gwb52uyj3g0wn52lez', '172.26.146.180', 'izbp1gwb52uyj3g0wn52lez', '', 'Ready', 'cloud'),
+                 Node('izbp1gwb52uyj3g0wn52lfz', '172.26.146.179', 'izbp1gwb52uyj3g0wn52lfz', '', 'Ready', 'cloud'),
+                 Node('server-1', '192.168.31.74', 'server-1', '', 'Ready', 'edge-1'),
+                 Node('server-2', '192.168.31.85', 'server-2', '', 'Ready', 'edge-1'),
+                 Node('server-3', '192.168.31.128', 'server-3', '', 'Ready', 'edge-2'),
+                 Node('dell2018', '192.168.31.208', 'dell2018', '', 'Ready', 'edge-2')]
     if collect:
         prom_util = PrometheusClient(config)
         prom_sql = 'sum(istio_tcp_received_bytes_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace
@@ -97,26 +104,41 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
     combine_timestamp = pod_timestamp_map.copy()
     combine_timestamp.update(svc_timestamp_map.copy())
     k8s_client = KubernetesClient(config)
-    node_center: Dict[str, str] = {'192.168.31.101:9100': 'cloud'}
+    node_center: Dict[str, str] = {'izbp16opgy3xucvexwqp9dz': 'cloud',
+                                   'izbp193ioajdcnpofhlr1hz': 'cloud',
+                                   'izbp1gwb52uyj3g0wn52lez': 'cloud',
+                                   'izbp1gwb52uyj3g0wn52lfz': 'cloud',
+                                   'server-1': 'edge-1',
+                                   'server-2': 'edge-1',
+                                   'server-3': 'edge-2',
+                                   'dell2018': 'edge-2'}
+    masks = ['ingress', 'unknown', 'load-pod', 'carts-cloud-czcwz', 'carts-cloud-hxv26', 'istio-ingressgateway']
     for timestamp in combine_timestamp:
         g = nx.DiGraph()
         svc_call_list = svc_timestamp_map.get(timestamp, None)
+        svc_exist = []
         if svc_call_list:
             for svc_call in svc_call_list:
                 source = svc_call[0]
-                if 'ingress' in source:
-                    continue
                 destination = svc_call[1]
+                if source in masks or destination in masks:
+                    continue
                 g.add_edge(source, destination)
                 g.nodes[source]['type'] = NodeType.SVC.value
                 g.nodes[destination]['type'] = NodeType.SVC.value
                 g.nodes[source]['center'] = ''
                 g.nodes[destination]['center'] = ''
+                svc_exist.append(source)
+                svc_exist.append(destination)
+        svc_exist = list(set(svc_exist))
         pod_list = pod_timestamp_map.get(timestamp, None)
         if pod_list:
+            svc_pods_map = {}
             for pod in pod_list:
                 source = pod[0]
                 destination = pod[1]
+                if source in masks or destination in masks:
+                    continue
                 # pod node 双向边
                 g.add_edge(source, destination)
                 g.add_edge(destination, source)
@@ -125,6 +147,16 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
                 g.nodes[source]['center'] = center
                 g.nodes[destination]['type'] = NodeType.NODE.value
                 g.nodes[destination]['center'] = center
+                for svc in svc_exist:
+                    if svc in source:
+                        svc_pods = svc_pods_map.get(svc, [])
+                        svc_pods.append(source)
+                        svc_pods = list(set(svc_pods))
+                        svc_pods_map[svc] = svc_pods
+                for svc in svc_pods_map:
+                    svc_pods = svc_pods_map[svc]
+                    for svc_pod in svc_pods:
+                        g.add_edge(svc, svc_pod)
         graphs_at_timestamp[timestamp] = g
     return graphs_at_timestamp
 
@@ -587,30 +619,30 @@ def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_win
     print('collect graphs')
     if not os.path.exists(_dir):
         os.makedirs(_dir)
-    graphs: Dict[str, nx.DiGraph] = collect_from_file(config, _dir)
-    for graph_key in graphs:
-        graph = graphs[graph_key]
-        graph_svcs_calls = []
-        graph_svcs = []
-        for edge in graph.edges:
-            source = edge[0]
-            target = edge[1]
-            if graph.nodes[source]['type'] == 'svc':
-                graph_svcs_calls.append((source, target))
-                graph_svcs.append(source)
-                graph_svcs.append(target)
-        graph_svcs = list(set(graph_svcs))
-        for svc_call in graph_svcs_calls:
-            s = svc_call[0]
-            t = svc_call[1]
-            for sn in graph.nodes:
-                if s in sn and not s == sn:
-                    for tn in graph.nodes:
-                        if t in tn and not t == tn:
-                            # pass
-                            random_number = random.random()
-                            if random_number > 0.5:
-                                graph.add_edge(sn, tn)
+    graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll)
+    # for graph_key in graphs:
+    #     graph = graphs[graph_key]
+    #     graph_svcs_calls = []
+    #     graph_svcs = []
+    #     for edge in graph.edges:
+    #         source = edge[0]
+    #         target = edge[1]
+    #         if graph.nodes[source]['type'] == 'svc' and graph.nodes[target]['type'] == 'svc':
+    #             graph_svcs_calls.append((source, target))
+    #             graph_svcs.append(source)
+    #             graph_svcs.append(target)
+    #     graph_svcs = list(set(graph_svcs))
+    #     for svc_call in graph_svcs_calls:
+    #         s = svc_call[0]
+    #         t = svc_call[1]
+    #         for sn in graph.nodes:
+    #             if s in sn and not s == sn:
+    #                 for tn in graph.nodes:
+    #                     if t in tn and not t == tn:
+    #                         # pass
+    #                         random_number = random.random()
+    #                         if random_number > 0.5:
+    #                             graph.add_edge(sn, tn)
     graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
                                                   window_size)
     return graphs_time_window

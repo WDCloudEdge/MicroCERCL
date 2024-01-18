@@ -25,7 +25,7 @@ class Config:
         self.svcs = set()
         self.pods = set()
 
-        self.interval = 10 * 60
+        self.interval = 15 * 60
         # duration related to interval
         self.duration = self.interval
         self.window_size = 60
@@ -48,9 +48,6 @@ class Config:
 
         # graph
         self.graph_min_gap = 12 * self.step
-
-        # others
-        self.dir = 'MicroIRC'
 
 
 class Node:

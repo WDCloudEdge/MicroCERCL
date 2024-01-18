@@ -1,3 +1,4 @@
+import sys
 from collections import defaultdict
 from typing import Dict, List, Set
 import networkx as nx
@@ -28,6 +29,8 @@ class EdgeType(Enum):
     NODE_INSTANCE_EDGE = 'node-node_impact-instance'
     INSTANCE_INSTANCE = 'instance_call'
     INSTANCE_INSTANCE_EDGE = 'instance-instance_call-instance'
+    SVC_INSTANCE = 'load_balance'
+    SVC_INSTANCE_EDGE = 'svc-load_balance-instance'
 
 
 class GraphIndex:
@@ -128,7 +131,7 @@ def graph_weight_ns(begin_time, end_time, graph: nx.DiGraph, dir, namespace):
         if graph.nodes[node]['type'] == NodeType.POD.value:
             graph.nodes[node]['data'] = df_prefix_match(instance_df, node, [])
         elif graph.nodes[node]['type'] == NodeType.SVC.value:
-            graph.nodes[node]['data'] = df_prefix_match(svc_df, node, [])
+            graph.nodes[node]['data'] = df_prefix_match_svc(svc_df, node, [])
 
 
 def graph_weight(begin_time, end_time, graph: nx.DiGraph, dir):
@@ -186,6 +189,22 @@ def df_prefix_match(df: pd.DataFrame, prefix: str, stop_words: []) -> pd.DataFra
     return dataframe
 
 
+def df_prefix_match_svc(df: pd.DataFrame, prefix: str, stop_words: []) -> pd.DataFrame:
+    dataframe = pd.DataFrame()
+    columns = df.columns
+
+    def match(prefix):
+        for stop_word in stop_words:
+            if prefix == stop_word:
+                return True
+        return False
+
+    for column in columns:
+        if prefix == column[:column.rfind('&')] and ((len(stop_words) != 0 and not match(prefix)) or len(stop_words) == 0):
+            dataframe[column] = df[column]
+    return dataframe
+
+
 def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], anomaly_nodes: Dict[str, List],
            graphs_anomaly_time_series_index: Dict[str, List],
            anomaly_time_series: Dict[str, Dict[str, List[int]]],
@@ -235,10 +254,10 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                 c_name_list.append(u)
                 center_type_name_list[u_type] = list(set(c_name_list))
                 center_name[u_center] = center_type_name_list
-            # 判断是否跨网段边
-            if len(v_center) != 0 and len(u_center) != 0 and u_center != v_center:
-                u_type = u_type + '&' + u_center
-                v_type = v_type + '&' + v_center
+            # todo 判断是否跨网段边
+            # if len(v_center) != 0 and len(u_center) != 0 and u_center != v_center:
+            #     u_type = u_type + '&' + u_center
+            #     v_type = v_type + '&' + v_center
             edge_type = (u_type, f"{u_type}-{get_edge_type(u_type, v_type)}-{v_type}", v_type)
 
             hg_data_dict[edge_type][0].append(index.index[u_type][u])
@@ -298,8 +317,11 @@ def get_edge_type(u_type, v_type):
         return EdgeType.NODE_INSTANCE.value
     if u_type == NodeType.POD.value and v_type == NodeType.POD.value:
         return EdgeType.INSTANCE_INSTANCE.value
+    if u_type == NodeType.SVC.value and v_type == NodeType.POD.value:
+        return EdgeType.SVC_INSTANCE.value
     else:
-        pass
+        print(f'meet unexpected edge in graph: {u_type}-{v_type}')
+        sys.exit()
 
 
 def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = False):
@@ -382,6 +404,5 @@ def graph_load(base_dir: str, file_name: str) -> nx.DiGraph:
 def calculate_graph_score(graph: nx.DiGraph, feature_summary, graph_index_map):
     # 计算Pagerank得分
     personalization = {node: feature_summary[graph_index_map[node]] for node in graph.nodes()}
-    personalization['192.168.31.101:9100'] = 0
     pagerank_scores = nx.pagerank(graph, alpha=0.85, personalization=personalization)
     return dict(sorted(pagerank_scores.items(), key=lambda item: item[1], reverse=True))
