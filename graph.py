@@ -112,7 +112,7 @@ def combine_ns_graphs(graphs_time_window: Dict[str, nx.DiGraph]) -> Dict[str, nx
     graphs_combine: Dict[str, nx.DiGraph] = {}
     for graphs_time_ns in graphs_time_window:
         graph = graphs_time_window[graphs_time_ns]
-        graphs_time = graphs_time_ns[:graphs_time_ns.rfind('-')]
+        graphs_time = graphs_time_ns[:graphs_time_ns.find('-', graphs_time_ns.find('-') + 1)]
         graph_list = graphs_ns_combine.get(graphs_time, [])
         graph_list.append(graph)
         graphs_ns_combine[graphs_time] = graph_list
@@ -129,9 +129,13 @@ def graph_weight_ns(begin_time, end_time, graph: nx.DiGraph, dir, namespace):
 
     for node in graph.nodes:
         if graph.nodes[node]['type'] == NodeType.POD.value:
-            graph.nodes[node]['data'] = df_prefix_match(instance_df, node, [])
+            instance = df_prefix_match(instance_df, node, [])
+            if not instance.empty:
+                graph.nodes[node]['data'] = instance
         elif graph.nodes[node]['type'] == NodeType.SVC.value:
-            graph.nodes[node]['data'] = df_prefix_match_svc(svc_df, node, [])
+            svc = df_prefix_match_svc(svc_df, node, [])
+            if not svc.empty:
+                graph.nodes[node]['data'] = svc
 
 
 def graph_weight(begin_time, end_time, graph: nx.DiGraph, dir):
