@@ -122,21 +122,21 @@ class AggrHGraphConvWindow(nn.Module):
         node_num = len(graph.hetero_graph_index.index[NodeType.NODE.value])
         instance_num = len(graph.hetero_graph_index.index[NodeType.POD.value])
 
-        def graph_anomaly_index(graph_anomaly_node_index, anomaly, anomaly_map, node_num, instance_num):
-            for node_type in anomaly_map:
-                graph_index_by_anomaly = graph_anomaly_node_index.get(anomaly, [])
-                if node_type == NodeType.NODE.value:
-                    graph_index_by_anomaly.extend(node_index for node_index in anomaly_map[node_type])
-                elif node_type == NodeType.POD.value:
-                    graph_index_by_anomaly.extend(pod_index + node_num for pod_index in anomaly_map[node_type])
-                elif node_type == NodeType.SVC.value:
-                    graph_index_by_anomaly.extend(
-                        svc_index + node_num + instance_num for svc_index in anomaly_map[node_type])
-                graph_anomaly_node_index[anomaly] = graph_index_by_anomaly
+        # def graph_anomaly_index(graph_anomaly_node_index, anomaly, anomaly_map, node_num, instance_num):
+        #     for node_type in anomaly_map:
+        #         graph_index_by_anomaly = graph_anomaly_node_index.get(anomaly, [])
+        #         if node_type == NodeType.NODE.value:
+        #             graph_index_by_anomaly.extend(node_index for node_index in anomaly_map[node_type])
+        #         elif node_type == NodeType.POD.value:
+        #             graph_index_by_anomaly.extend(pod_index + node_num for pod_index in anomaly_map[node_type])
+        #         elif node_type == NodeType.SVC.value:
+        #             graph_index_by_anomaly.extend(
+        #                 svc_index + node_num + instance_num for svc_index in anomaly_map[node_type])
+        #         graph_anomaly_node_index[anomaly] = graph_index_by_anomaly
 
-        for anomaly in graph.anomaly_index:
-            graph_anomaly_index(graph_anomaly_node_index, anomaly, graph.anomaly_index[anomaly], node_num,
-                                instance_num)
+        # for anomaly in graph.anomaly_index:
+        #     graph_anomaly_index(graph_anomaly_node_index, anomaly, graph.anomaly_index[anomaly], node_num,
+        #                         instance_num)
         # return self.rnn_layer(th.stack(input_data_list, dim=1).T)[
         #     0], graphs_center_node_index, graphs_anomaly_node_index
         graph_time_series_feat = th.stack(input_data_list, dim=1).T
@@ -248,12 +248,21 @@ class AggrHGraphConvWindows(nn.Module):
             graphs_anomaly_node_index = {}
             for anomaly in graphs_anomaly_node_name:
                 if anomaly not in graphs_anomaly_node_index:
-                    graphs_anomaly_node_index[anomaly] = []
+                    graphs_anomaly_node_index[anomaly] = {}
                 graph_anomaly_node_name = graphs_anomaly_node_name[anomaly]
                 for node_type in graph_anomaly_node_name:
                     graph_anomaly_nodes = graph_anomaly_node_name[node_type]
                     for graph_anomaly_node in graph_anomaly_nodes:
-                        graphs_anomaly_node_index[anomaly].append(index[graph_anomaly_node])
+                        is_neighbor = False
+                        if 'neighbor' in graph_anomaly_node:
+                            graph_anomaly_node = graph_anomaly_node[8:]
+                            is_neighbor = True
+                        if is_neighbor:
+                            neighbors = graphs_anomaly_node_index[anomaly].get('neighbor', [])
+                            neighbors.append(index[graph_anomaly_node])
+                            graphs_anomaly_node_index[anomaly]['neighbor'] = neighbors
+                        else:
+                            graphs_anomaly_node_index[anomaly]['source'] = [index[graph_anomaly_node]]
             window_graphs_center_node_index.append(graph_center_node_index)
             window_graphs_anomaly_node_index.append(graphs_anomaly_node_index)
             # if index > 0:
@@ -300,6 +309,7 @@ class AggrUnsupervisedGNN(nn.Module):
                                           svc_feat_num=svc_feat_num, instance_feat_num=instance_feat_num,
                                           node_feat_num=node_feat_num, rnn=rnn,
                                           attention=attention)
+        self.precessor_neighbor_weight = nn.Parameter(th.tensor(1.0, requires_grad=True))
         self.criterion = nn.MSELoss()
         # self.criterion = nn.L1Loss()
         # self.criterion = nn.CrossEntropyLoss()
@@ -344,11 +354,13 @@ class AggrUnsupervisedGNN(nn.Module):
             aggr_feat_idx = aggr_feat[idx]
             for anomaly in anomaly_index_combine:
                 if len(anomaly_index_combine[anomaly]) > 0:
-                    aggr_anomaly_nodes_index = sorted(anomaly_index_combine[anomaly])
+                    aggr_anomaly_nodes_index = anomaly_index_combine[anomaly]
                     # aggr_anomaly_index = window_graphs_index[idx][anomaly[anomaly.find('-') + 1:]]
                     aggr_anomaly_time_series_index = window_anomaly_time_series[idx][anomaly[anomaly.find('-') + 1:]]
                     # rate = 1 / len(aggr_anomaly_nodes_index) / len(aggr_anomaly_time_series_index)
-                    rate = 1 / len(aggr_anomaly_nodes_index)
+                    # rate = 1 / len(aggr_anomaly_nodes_index)
+                    rate = 1
+                    precessor_rate = 1 * self.precessor_neighbor_weight
                     # rate = aggr_feat_idx.max().item()
                     aggr_anomaly_time_series_index_map = {}
                     for time_series_index in aggr_anomaly_time_series_index:
@@ -358,14 +370,22 @@ class AggrUnsupervisedGNN(nn.Module):
                     aggr_feat_label = torch.zeros_like(aggr_feat_idx)
                     # aggr_feat_label = aggr_feat_idx.clone()
                     aggr_feat_label_weight = torch.zeros_like(aggr_feat_idx)
-                    index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index),
+                    source_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['source']),
                                                         torch.tensor(aggr_anomaly_time_series_index))
-                    rows, cols = index_matrix.shape
+                    rows, cols = source_index_matrix.shape
                     for i in range(rows):
-                        element = index_matrix[i]
-                        count = aggr_anomaly_time_series_index_map[element[1].item()]
+                        element = source_index_matrix[i]
+                        # count = aggr_anomaly_time_series_index_map[element[1].item()]
                         # aggr_feat_label_weight[element[0], element[1]] = count
                         aggr_feat_label_weight[element[0]] = rate
+                    neighbor_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['neighbor']),
+                                                               torch.tensor(aggr_anomaly_time_series_index))
+                    rows, cols = neighbor_index_matrix.shape
+                    for i in range(rows):
+                        element = neighbor_index_matrix[i]
+                        # count = aggr_anomaly_time_series_index_map[element[1].item()]
+                        # aggr_feat_label_weight[element[0], element[1]] = count
+                        aggr_feat_label_weight[element[0]] = precessor_rate
                     # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = rate
                     # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = 0
                     # sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label * aggr_feat_label_weight)

@@ -328,7 +328,7 @@ def get_edge_type(u_type, v_type):
         sys.exit()
 
 
-def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = False):
+def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighbor: bool = True):
     anomaly_type_index = {}
     anomaly_type_name = {}
     for anomaly in anomalies:
@@ -345,16 +345,17 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
             anomaly_name_list.append(anomaly)
             anomaly_name_map[type] = anomaly_name_list
             if is_neighbor:
+                neighbor_key = 'neighbor'
                 # 找到异常传播前继节点
                 predecessors = list(graph.predecessors(anomaly))
                 for n in predecessors:
                     type = graph.nodes[n]['type']
                     anomaly_type_list = anomaly_type_map.get(type, [])
-                    anomaly_type_list.append(index.index[type][n])
+                    anomaly_type_list.append(neighbor_key + str(index.index[type][n]))
                     anomaly_type_map[type] = anomaly_type_list
 
                     anomaly_name_list = anomaly_name_map.get(type, [])
-                    anomaly_name_list.append(n)
+                    anomaly_name_list.append(neighbor_key + n)
                     anomaly_name_map[type] = anomaly_name_list
             anomaly_type_index[anomaly_key] = anomaly_type_map
             anomaly_type_name[anomaly_key] = anomaly_name_map
@@ -372,11 +373,15 @@ def get_anomaly_time_window(anomalies, graph_time_window):
 def graph_dump(graph: nx.Graph, base_dir: str, dump_file):
     # graph dump
     graph_copy = graph.copy()
+    anomaly_nodes = []
     for node, data in graph_copy.nodes(data=True):
         node_data_dict = {}
-        for head in data['data'].columns:
-            node_data_dict[head] = np.array(data['data'][head], dtype=float).tolist()
-        graph_copy.nodes[node]['data'] = node_data_dict
+        try:
+            for head in data['data'].columns:
+                node_data_dict[head] = np.array(data['data'][head], dtype=float).tolist()
+            graph_copy.nodes[node]['data'] = node_data_dict
+        except:
+            anomaly_nodes.append(node)
     json_converted = json_graph.node_link_data(graph_copy)
     graph_dir = base_dir + '/graph/'
     if not os.path.exists(graph_dir):
