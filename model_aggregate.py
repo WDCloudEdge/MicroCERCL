@@ -35,7 +35,7 @@ class AggrHGraphConvLayer(nn.Module):
         },
             aggregate='mean')
         if th.cuda.is_available():
-            self.conv = self.conv.to('cuda')
+            self.conv = self.conv.to('cuda:1')
         self.activation = nn.ReLU()
 
     def forward(self, graph: HeteroWithGraphIndex, feat_dict):
@@ -88,7 +88,7 @@ class AggrHGraphConvWindow(nn.Module):
             for index in range(data.shape[0]):
                 data_at_time_index.append(data[index][n])
             if th.cuda.is_available():
-                return th.stack(data_at_time_index, dim=1).to('cuda').T
+                return th.stack(data_at_time_index, dim=1).to('cuda:1').T
             else:
                 return th.stack(data_at_time_index, dim=1).T
 
@@ -301,7 +301,7 @@ class AggrHGraphConvWindows(nn.Module):
 
 
 class AggrUnsupervisedGNN(nn.Module):
-    def __init__(self, out_channels, hidden_size, svc_feat_num, instance_feat_num, node_feat_num,
+    def __init__(self, anomaly_index, out_channels, hidden_size, svc_feat_num, instance_feat_num, node_feat_num,
                  rnn: RnnType = RnnType.LSTM,
                  attention: bool = False):
         super(AggrUnsupervisedGNN, self).__init__()
@@ -309,7 +309,8 @@ class AggrUnsupervisedGNN(nn.Module):
                                           svc_feat_num=svc_feat_num, instance_feat_num=instance_feat_num,
                                           node_feat_num=node_feat_num, rnn=rnn,
                                           attention=attention)
-        self.precessor_neighbor_weight = nn.Parameter(th.tensor(1.0, requires_grad=True))
+        self.precessor_neighbor_weight = nn.Parameter(th.ones(1, len(anomaly_index), requires_grad=True, device='cuda:1'))
+        self.anomaly_index = anomaly_index
         self.criterion = nn.MSELoss()
         # self.criterion = nn.L1Loss()
         # self.criterion = nn.CrossEntropyLoss()
@@ -360,7 +361,7 @@ class AggrUnsupervisedGNN(nn.Module):
                     # rate = 1 / len(aggr_anomaly_nodes_index) / len(aggr_anomaly_time_series_index)
                     # rate = 1 / len(aggr_anomaly_nodes_index)
                     rate = 1
-                    precessor_rate = 1 * self.precessor_neighbor_weight
+                    precessor_rate = 1 * self.precessor_neighbor_weight[0][self.anomaly_index[anomaly[anomaly.find('-') + 1:]]]
                     # rate = aggr_feat_idx.max().item()
                     aggr_anomaly_time_series_index_map = {}
                     for time_series_index in aggr_anomaly_time_series_index:

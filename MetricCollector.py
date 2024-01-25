@@ -154,10 +154,10 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
                         svc_pods.append(source)
                         svc_pods = list(set(svc_pods))
                         svc_pods_map[svc] = svc_pods
-                for svc in svc_pods_map:
-                    svc_pods = svc_pods_map[svc]
-                    for svc_pod in svc_pods:
-                        g.add_edge(svc, svc_pod)
+            for svc in svc_pods_map:
+                svc_pods = svc_pods_map[svc]
+                for svc_pod in svc_pods:
+                    g.add_edge(svc, svc_pod)
         graphs_at_timestamp[timestamp] = g
     return graphs_at_timestamp
 

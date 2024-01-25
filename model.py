@@ -45,11 +45,11 @@ class EarlyStopping:
 
 # 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
 class UnsupervisedGNN(nn.Module):
-    def __init__(self, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM,
+    def __init__(self, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM,
                  attention: bool = False):
         super(UnsupervisedGNN, self).__init__()
         graph = graphs[next(iter(graphs))]
-        self.aggr_conv = AggrUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
+        self.aggr_conv = AggrUnsupervisedGNN(anomaly_index, out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
                                              attention=attention,
                                              svc_feat_num=
                                              graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
@@ -89,12 +89,12 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], dir: str = '',
+def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex], dir: str = '',
           is_train: TrainType = TrainType.EVAL,
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
-    model = UnsupervisedGNN(out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
+    model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
     if torch.cuda.is_available():
-        model = model.to('cuda')
+        model = model.to('cuda:1')
     label = label
     root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '')
     model_file = 'model_weights' + '_' + label + '_' + rnn.value + (
@@ -102,7 +102,7 @@ def train(label: str, root_cause: str, graphs: Dict[str, HeteroWithGraphIndex], 
     root_cause = root_cause
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
-        early_stopping = EarlyStopping(patience=5, delta=1e-10, min_epoch=2000)
+        early_stopping = EarlyStopping(patience=5, delta=1e-5, min_epoch=2000)
         if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
             if is_train == TrainType.TRAIN:
                 model.initialize_weights()

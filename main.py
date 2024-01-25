@@ -27,29 +27,47 @@ if __name__ == "__main__":
 
 
     simples: List[Simple] = [
+        # Simple(
+        #     1705125240, 1705125960, 'label1', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-1',
+        # ),
+        # Simple(
+        #     1705126080, 1705126800, 'label2', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-2'
+        # ),
+        # Simple(
+        #     1705126920, 1705127640, 'label3', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-3'
+        # ),
+        # Simple(
+        #     1705129320, 1705130040, 'label5', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-2'
+        # ),
+        # Simple(
+        #     1705130160, 1705130880, 'label6', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-3'
+        # ),
+        # Simple(
+        #     1705131180, 1705131900, 'label7', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-1'
+        # ),
+        # Simple(
+        #     1705132020, 1705132740, 'label8', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-2'
+        # ),
+        # Simple(
+        #     1705132860, 1705133580, 'label9', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-3'
+        # ),
+        # Simple(
+        #     1705035180, 1705035900, 'label10', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-1'
+        # ),
+        # Simple(
+        #     1705036020, 1705036740, 'label11', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-2'
+        # ),
+        # Simple(
+        #     1705036860, 1705037580, 'label12', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-3'
+        # ),
+        # Simple(
+        #     1705122300, 1705123020, 'label16', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-1'
+        # )
+        # Simple(
+        #     1705123140, 1705123860, 'label17', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-2'
+        # ),
         Simple(
-            1705125240, 1705125960, 'label1', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-1',
-        ),
-        Simple(
-            1705126080, 1705126800, 'label2', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-2'
-        ),
-        Simple(
-            1705126920, 1705127640, 'label3', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-3'
-        ),
-        Simple(
-            1705129320, 1705130040, 'label5', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-2'
-        ),
-        Simple(
-            1705130160, 1705130880, 'label6', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-3'
-        ),
-        Simple(
-            1705131180, 1705131900, 'label7', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-1'
-        ),
-        Simple(
-            1705132020, 1705132740, 'label8', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-2'
-        ),
-        Simple(
-            1705132860, 1705133580, 'label9', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-3'
+            1705123980, 1705124700, 'label18', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-3'
         )
     ]
     for simple in simples:
@@ -112,6 +130,7 @@ if __name__ == "__main__":
         MetricCollector.collect_node(config, base_dir + '/node', config.collect)
         # 非云边基于指标异常检测
         anomalies = {}
+        anomalies_index = {}
         anomaly_time_series = {}
         for time_pair in time_pair_list:
             for ns in namespaces:
@@ -121,11 +140,13 @@ if __name__ == "__main__":
                 anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, time_pair[0], time_pair[1])
                 anomaly_list.extend(anomalies_ns)
                 anomalies[time_key] = anomaly_list
+                anomalies_index[time_key] = {a: i for i, a in enumerate(anomaly_list)}
                 anomaly_time_series_list = anomaly_time_series.get(time_key, {})
                 anomaly_time_series_list = {**anomaly_time_series_list, **anomaly_time_series_index}
                 anomaly_time_series[time_key] = anomaly_time_series_list
         # 赋权ns子图
         for time_window in graphs_time_window:
+            anomaly_index = anomalies_index[time_window]
             t_index_time_window = time_pair_index[(int(time_window.split('-')[0]), int(time_window.split('-')[1]))]
             for graph_time_window in graphs_time_window[time_window]:
                 graph: nx.DiGraph = graphs_time_window[time_window][graph_time_window]
@@ -188,5 +209,5 @@ if __name__ == "__main__":
                                                                             graphs_anomaly_time_series_index,
                                                                             graphs_anomaly_time_series_index_map
                                                                             , graphs_index_time_map)
-            train(simple.label, simple.root_cause, hetero_graphs_combine, base_dir, config.train, rnn=config.rnn_type,
+            train(simple.label, simple.root_cause, anomaly_index, hetero_graphs_combine, base_dir, config.train, rnn=config.rnn_type,
                   attention=config.attention)
