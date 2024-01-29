@@ -379,14 +379,15 @@ class AggrUnsupervisedGNN(nn.Module):
                         # count = aggr_anomaly_time_series_index_map[element[1].item()]
                         # aggr_feat_label_weight[element[0], element[1]] = count
                         aggr_feat_label_weight[element[0]] = rate
-                    neighbor_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['neighbor']),
-                                                               torch.tensor(aggr_anomaly_time_series_index))
-                    rows, cols = neighbor_index_matrix.shape
-                    for i in range(rows):
-                        element = neighbor_index_matrix[i]
-                        # count = aggr_anomaly_time_series_index_map[element[1].item()]
-                        # aggr_feat_label_weight[element[0], element[1]] = count
-                        aggr_feat_label_weight[element[0]] = precessor_rate
+                    if 'neighbor' in aggr_anomaly_nodes_index:
+                        neighbor_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['neighbor']),
+                                                                   torch.tensor(aggr_anomaly_time_series_index))
+                        rows, cols = neighbor_index_matrix.shape
+                        for i in range(rows):
+                            element = neighbor_index_matrix[i]
+                            # count = aggr_anomaly_time_series_index_map[element[1].item()]
+                            # aggr_feat_label_weight[element[0], element[1]] = count
+                            aggr_feat_label_weight[element[0]] = precessor_rate
                     # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = rate
                     # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = 0
                     # sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label * aggr_feat_label_weight)
