@@ -67,8 +67,50 @@ if __name__ == "__main__":
         #     1705123140, 1705123860, 'label17', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-2'
         # ),
         Simple(
-            1705123980, 1705124700, 'label18', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-3'
-        )
+            1706114760, 1706115540, 'label-details-edge-net-latency-1', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-1'
+        ),
+        Simple(
+            1706115660, 1706116440, 'label-details-edge-net-latency-2', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-2'
+        ),
+        Simple(
+            1706116560, 1706117340, 'label-details-edge-net-latency-3', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-3'
+        ),
+        Simple(
+            1706117460, 1706118240, 'label-details-edge-net-latency-4', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-4'
+        ),
+        Simple(
+            1706118360, 1706119140, 'label-details-edge-net-latency-5', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-5'
+        ),
+        Simple(
+            1706154240, 1706155020, 'label-details-edge-cpu-1', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-1'
+        ),
+        Simple(
+            1706155140, 1706155920, 'label-details-edge-cpu-2', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-2'
+        ),
+        Simple(
+            1706156040, 1706156820, 'label-details-edge-cpu-3', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-3'
+        ),
+        Simple(
+            1706156940, 1706157720, 'label-details-edge-cpu-4', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-4'
+        ),
+        Simple(
+            1706157840, 1706158620, 'label-details-edge-cpu-5', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-5'
+        ),
+        Simple(
+            1706167740, 1706168520, 'label-details-edge-mem-1', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-1'
+        ),
+        Simple(
+            1706168640, 1706169420, 'label-details-edge-mem-2', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-2'
+        ),
+        Simple(
+            1706169540, 1706170320, 'label-details-edge-mem-3', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-3'
+        ),
+        Simple(
+            1706170440, 1706171220, 'label-details-edge-mem-4', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-4'
+        ),
+        Simple(
+            1706171340, 1706172120, 'label-details-edge-mem-5', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-5'
+        ),
     ]
     for simple in simples:
         global_now_time = simple.global_now_time
@@ -133,17 +175,18 @@ if __name__ == "__main__":
         anomalies_index = {}
         anomaly_time_series = {}
         for time_pair in time_pair_list:
+            time_key = str(time_pair[0]) + '-' + str(time_pair[1])
             for ns in namespaces:
                 data_folder = base_dir + '/' + ns
-                time_key = str(time_pair[0]) + '-' + str(time_pair[1])
                 anomaly_list = anomalies.get(time_key, [])
                 anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, time_pair[0], time_pair[1])
                 anomaly_list.extend(anomalies_ns)
+                anomaly_list = list(set(anomaly_list))
                 anomalies[time_key] = anomaly_list
-                anomalies_index[time_key] = {a: i for i, a in enumerate(anomaly_list)}
                 anomaly_time_series_list = anomaly_time_series.get(time_key, {})
                 anomaly_time_series_list = {**anomaly_time_series_list, **anomaly_time_series_index}
                 anomaly_time_series[time_key] = anomaly_time_series_list
+            anomalies_index[time_key] = {a: i for i, a in enumerate(anomalies[time_key])}
         # 赋权ns子图
         for time_window in graphs_time_window:
             anomaly_index = anomalies_index[time_window]
