@@ -6,7 +6,7 @@ import pandas as pd
 from util.utils import df_time_limit_normalization, df_time_limit, normalize_series, time_string_2_timestamp
 
 
-def get_anomaly_by_df(base_dir, file_dir, begin_timestamp, end_timestamp):
+def get_anomaly_by_df(base_dir, file_dir, label, begin_timestamp, end_timestamp):
     anomalies = []
     # todo 统计时间戳的严重程度
     anomaly_time_series = {}
@@ -73,7 +73,7 @@ def get_anomaly_by_df(base_dir, file_dir, begin_timestamp, end_timestamp):
         a_i.extend(anomalies_index[a_instance])
         anomaly_time_series_index_combine[a_instance[:a_instance.rfind('_')]] = a_i
     anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
-    record_anomalies(anomalies, anomalies_index, base_dir)
+    record_anomalies(anomalies, anomalies_index, base_dir, label)
     return anomalies, anomaly_time_series
 
 
@@ -173,8 +173,8 @@ def get_timestamp_index(df):
     return df_time_index, df_index_time
 
 
-def record_anomalies(anomalies, anomalies_index, dir):
-    with open(dir + '/result-anomaly_detection.log', "a") as output_file:
+def record_anomalies(anomalies, anomalies_index, dir, label):
+    with open(dir + '/result-anomaly_detection-' + label + '.log', "a") as output_file:
         print(anomalies, file=output_file)
         print(anomalies_index, file=output_file)
 

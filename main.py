@@ -27,45 +27,6 @@ if __name__ == "__main__":
 
 
     simples: List[Simple] = [
-        # Simple(
-        #     1705125240, 1705125960, 'label1', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-1',
-        # ),
-        # Simple(
-        #     1705126080, 1705126800, 'label2', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-2'
-        # ),
-        # Simple(
-        #     1705126920, 1705127640, 'label3', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-3'
-        # ),
-        # Simple(
-        #     1705129320, 1705130040, 'label5', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-2'
-        # ),
-        # Simple(
-        #     1705130160, 1705130880, 'label6', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-3'
-        # ),
-        # Simple(
-        #     1705131180, 1705131900, 'label7', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-1'
-        # ),
-        # Simple(
-        #     1705132020, 1705132740, 'label8', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-2'
-        # ),
-        # Simple(
-        #     1705132860, 1705133580, 'label9', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-3'
-        # ),
-        # Simple(
-        #     1705035180, 1705035900, 'label10', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-1'
-        # ),
-        # Simple(
-        #     1705036020, 1705036740, 'label11', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-2'
-        # ),
-        # Simple(
-        #     1705036860, 1705037580, 'label12', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-3'
-        # ),
-        # Simple(
-        #     1705122300, 1705123020, 'label16', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-1'
-        # )
-        # Simple(
-        #     1705123140, 1705123860, 'label17', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-2'
-        # ),
         Simple(
             1706114760, 1706115540, 'label-details-edge-net-latency-1', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-1'
         ),
@@ -179,7 +140,7 @@ if __name__ == "__main__":
             for ns in namespaces:
                 data_folder = base_dir + '/' + ns
                 anomaly_list = anomalies.get(time_key, [])
-                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, time_pair[0], time_pair[1])
+                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, simple.label, time_pair[0], time_pair[1])
                 anomaly_list.extend(anomalies_ns)
                 anomaly_list = list(set(anomaly_list))
                 anomalies[time_key] = anomaly_list

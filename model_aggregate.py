@@ -31,7 +31,8 @@ class AggrHGraphConvLayer(nn.Module):
             EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
             EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, out_channel),
             EdgeType.INSTANCE_INSTANCE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
-            EdgeType.SVC_INSTANCE_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel)
+            EdgeType.SVC_INSTANCE_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel),
+            EdgeType.INSTANCE_SVC_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel)
         },
             aggregate='mean')
         if th.cuda.is_available():

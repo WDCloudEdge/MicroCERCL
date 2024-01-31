@@ -31,6 +31,8 @@ class EdgeType(Enum):
     INSTANCE_INSTANCE_EDGE = 'instance-instance_call-instance'
     SVC_INSTANCE = 'load_balance'
     SVC_INSTANCE_EDGE = 'svc-load_balance-instance'
+    INSTANCE_SVC = 'flow_entrance'
+    INSTANCE_SVC_EDGE = 'instance-flow_entrance-svc'
 
 
 class GraphIndex:
@@ -323,6 +325,8 @@ def get_edge_type(u_type, v_type):
         return EdgeType.INSTANCE_INSTANCE.value
     if u_type == NodeType.SVC.value and v_type == NodeType.POD.value:
         return EdgeType.SVC_INSTANCE.value
+    if u_type == NodeType.POD.value and v_type == NodeType.SVC.value:
+        return EdgeType.INSTANCE_SVC.value
     else:
         print(f'meet unexpected edge in graph: {u_type}-{v_type}')
         sys.exit()
