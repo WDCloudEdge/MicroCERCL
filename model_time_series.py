@@ -26,14 +26,14 @@ class TimeHGraphConvLayer(nn.Module):
         },
             aggregate='sum')
         if th.cuda.is_available():
-            self.conv = self.conv.to('cuda')
+            self.conv = self.conv.to('cuda:0')
         self.linear_map = {}
         self.linear_map[NodeType.NODE.value] = nn.Linear(self.node_num, out_channel)
         self.linear_map[NodeType.SVC.value] = nn.Linear(self.svc_num, out_channel)
         self.linear_map[NodeType.POD.value] = nn.Linear(self.instance_num, out_channel)
         self.linear_map['total'] = nn.Linear(self.total_node_num, out_channel)
         if th.cuda.is_available():
-            self.linear_map['total'] = self.linear_map['total'].to('cuda')
+            self.linear_map['total'] = self.linear_map['total'].to('cuda:0')
         self.activation = nn.LeakyReLU(negative_slope=1e-2)
 
     def forward(self, graph, feat_dict):
@@ -56,7 +56,7 @@ class TimeHGraphConvWindow(nn.Module):
             self.rnn_layer = nn.GRU(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=2,
                                     batch_first=True)
         if th.cuda.is_available():
-            self.rnn_layer = self.rnn_layer.to('cuda')
+            self.rnn_layer = self.rnn_layer.to('cuda:0')
         self.hGraph_conv_layer_list = []
         self.svc_feat_num = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2]
         self.instance_feat_num = graph.hetero_graph.nodes[NodeType.POD.value].data['feat'].shape[2]

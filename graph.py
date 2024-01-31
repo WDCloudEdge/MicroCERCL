@@ -283,7 +283,7 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
             }
         )
         if th.cuda.is_available():
-            _hg = _hg.to('cuda')
+            _hg = _hg.to('cuda:0')
         for type in type_map:
             type_list = type_map[type]
             for node_index in type_list:
@@ -291,13 +291,13 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                     feat_zeros = th.zeros((_hg.number_of_nodes(type), graph.nodes[node_index.name]['data'].shape[0],
                                            graph.nodes[node_index.name]['data'].shape[1]), dtype=th.float32)
                     if th.cuda.is_available():
-                        _hg.nodes[type].data['feat'] = feat_zeros.to('cuda')
+                        _hg.nodes[type].data['feat'] = feat_zeros.to('cuda:0')
                     else:
                         _hg.nodes[type].data['feat'] = feat_zeros
                 feat_data = th.tensor(graph.nodes[node_index.name]['data'].values,
                                       dtype=th.float32)
                 if th.cuda.is_available():
-                    _hg.nodes[type].data['feat'][node_index.index] = feat_data.to('cuda')
+                    _hg.nodes[type].data['feat'][node_index.index] = feat_data.to('cuda:0')
                 else:
                     _hg.nodes[type].data['feat'][node_index.index] = feat_data
         # 划分多中心子图

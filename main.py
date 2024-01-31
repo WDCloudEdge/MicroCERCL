@@ -27,92 +27,54 @@ if __name__ == "__main__":
 
 
     simples: List[Simple] = [
-        # Simple(
-        #     1705125240, 1705125960, 'label1', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-1',
-        # ),
-        # Simple(
-        #     1705126080, 1705126800, 'label2', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-2'
-        # ),
-        # Simple(
-        #     1705126920, 1705127640, 'label3', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-cpu-3'
-        # ),
-        # Simple(
-        #     1705129320, 1705130040, 'label5', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-2'
-        # ),
-        # Simple(
-        #     1705130160, 1705130880, 'label6', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-mem-3'
-        # ),
-        # Simple(
-        #     1705131180, 1705131900, 'label7', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-1'
-        # ),
-        # Simple(
-        #     1705132020, 1705132740, 'label8', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-2'
-        # ),
-        # Simple(
-        #     1705132860, 1705133580, 'label9', 'details', 'abnormal/bookinfo/bookinfo-details/bookinfo-details-net-3'
-        # ),
-        # Simple(
-        #     1705035180, 1705035900, 'label10', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-1'
-        # ),
-        # Simple(
-        #     1705036020, 1705036740, 'label11', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-2'
-        # ),
-        # Simple(
-        #     1705036860, 1705037580, 'label12', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-cpu-3'
-        # ),
-        # Simple(
-        #     1705122300, 1705123020, 'label16', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-1'
-        # )
-        # Simple(
-        #     1705123140, 1705123860, 'label17', 'productpage', 'abnormal/bookinfo/bookinfo-productpage/bookinfo-productpage-net-2'
-        # ),
         Simple(
-            1706114760, 1706115540, 'label-details-edge-net-latency-1', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-1'
+            1706236200, 1706236980, 'label-reviews-v3-edge-net-latency-1', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-1'
         ),
         Simple(
-            1706115660, 1706116440, 'label-details-edge-net-latency-2', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-2'
+            1706237100, 1706237880, 'label-reviews-v3-edge-net-latency-2', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-2'
         ),
         Simple(
-            1706116560, 1706117340, 'label-details-edge-net-latency-3', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-3'
+            1706238000, 1706238780, 'label-reviews-v3-edge-net-latency-3', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-3'
         ),
         Simple(
-            1706117460, 1706118240, 'label-details-edge-net-latency-4', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-4'
+            1706238900, 1706239680, 'label-reviews-v3-edge-net-latency-4', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-4'
         ),
         Simple(
-            1706118360, 1706119140, 'label-details-edge-net-latency-5', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-net-5'
+            1706239800, 1706240580, 'label-reviews-v3-edge-net-latency-5', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-5'
         ),
         Simple(
-            1706154240, 1706155020, 'label-details-edge-cpu-1', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-1'
+            1706227200, 1706227980, 'label-reviews-v3-edge-cpu-1', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-1'
         ),
         Simple(
-            1706155140, 1706155920, 'label-details-edge-cpu-2', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-2'
+            1706228100, 1706228880, 'label-reviews-v3-edge-cpu-2', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-2'
         ),
         Simple(
-            1706156040, 1706156820, 'label-details-edge-cpu-3', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-3'
+            1706229000, 1706229780, 'label-reviews-v3-edge-cpu-3', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-3'
         ),
         Simple(
-            1706156940, 1706157720, 'label-details-edge-cpu-4', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-4'
+            1706229900, 1706230680, 'label-reviews-v3-edge-cpu-4', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-4'
         ),
         Simple(
-            1706157840, 1706158620, 'label-details-edge-cpu-5', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-cpu-5'
+            1706230800, 1706231580, 'label-reviews-v3-edge-cpu-5', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-5'
         ),
         Simple(
-            1706167740, 1706168520, 'label-details-edge-mem-1', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-1'
+            1706231700, 1706232480, 'label-reviews-v3-edge-mem-1', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-1'
         ),
         Simple(
-            1706168640, 1706169420, 'label-details-edge-mem-2', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-2'
+            1706232600, 1706233380, 'label-reviews-v3-edge-mem-2', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-2'
         ),
         Simple(
-            1706169540, 1706170320, 'label-details-edge-mem-3', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-3'
+            1706233500, 1706234280, 'label-reviews-v3-edge-mem-3', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-3'
         ),
         Simple(
-            1706170440, 1706171220, 'label-details-edge-mem-4', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-4'
+            1706234400, 1706235180, 'label-reviews-v3-edge-mem-4', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-4'
         ),
         Simple(
-            1706171340, 1706172120, 'label-details-edge-mem-5', 'details-v1-edge', 'abnormal/bookinfo/details-edge/bookinfo-details-edge-mem-5'
+            1706235300, 1706236080, 'label-reviews-v3-edge-mem-5', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-5'
         ),
     ]
     for simple in simples:
+        print(simple.label)
         global_now_time = simple.global_now_time
         global_end_time = simple.global_end_time
         now = int(time.time())

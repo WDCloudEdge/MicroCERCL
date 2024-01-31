@@ -94,7 +94,7 @@ def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Di
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
     model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
     if torch.cuda.is_available():
-        model = model.to('cuda:1')
+        model = model.to('cuda:0')
     label = label
     root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '')
     model_file = 'model_weights' + '_' + label + '_' + rnn.value + (
