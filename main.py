@@ -141,7 +141,7 @@ if __name__ == "__main__":
             for ns in namespaces:
                 data_folder = base_dir + '/' + ns
                 anomaly_list = anomalies.get(time_key, [])
-                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, time_pair[0], time_pair[1])
+                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, simple.label, time_pair[0], time_pair[1])
                 anomaly_list.extend(anomalies_ns)
                 anomaly_list = list(set(anomaly_list))
                 anomalies[time_key] = anomaly_list
