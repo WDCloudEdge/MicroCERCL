@@ -102,7 +102,7 @@ def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Di
     root_cause = root_cause
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
-        early_stopping = EarlyStopping(patience=5, delta=1e-5, min_epoch=2000)
+        early_stopping = EarlyStopping(patience=5, delta=1e-5, min_epoch=200)
         if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
             if is_train == TrainType.TRAIN:
                 model.initialize_weights()
@@ -111,8 +111,8 @@ def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Di
             # wandb.init(project="MicroCERC", name="MicroCERC " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             # wandb.watch(model)
             optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-            scheduler = StepLR(optimizer, step_size=2000, gamma=0.5)
-            for epoch in range(model.epoch, 10000, 1):
+            scheduler = StepLR(optimizer, step_size=200, gamma=0.5)
+            for epoch in range(model.epoch, 1000, 1):
                 model.set_epoch(epoch)
                 optimizer.zero_grad()
                 # aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, time_series_feat, anomaly_time_series_index_list = model(graphs)

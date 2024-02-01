@@ -74,6 +74,7 @@ if __name__ == "__main__":
         ),
     ]
     for simple in simples:
+        print(simple.label)
         global_now_time = simple.global_now_time
         global_end_time = simple.global_end_time
         now = int(time.time())
@@ -85,6 +86,7 @@ if __name__ == "__main__":
         folder = '.'
         graphs_time_window: Dict[str, Dict[str, nx.DiGraph]] = {}
         base_dir = './data/' + str(simple.dir)
+        base_output_dir = './data/abnormal/bookinfo'
         time_pair_list = []
         time_pair_index = {}
         now_time = global_now_time
@@ -140,7 +142,7 @@ if __name__ == "__main__":
             for ns in namespaces:
                 data_folder = base_dir + '/' + ns
                 anomaly_list = anomalies.get(time_key, [])
-                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_dir, data_folder, simple.label, time_pair[0], time_pair[1])
+                anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_output_dir, data_folder, simple.label, time_pair[0], time_pair[1])
                 anomaly_list.extend(anomalies_ns)
                 anomaly_list = list(set(anomaly_list))
                 anomalies[time_key] = anomaly_list
@@ -213,5 +215,5 @@ if __name__ == "__main__":
                                                                             graphs_anomaly_time_series_index,
                                                                             graphs_anomaly_time_series_index_map
                                                                             , graphs_index_time_map)
-            train(simple.label, simple.root_cause, anomaly_index, hetero_graphs_combine, base_dir, config.train, rnn=config.rnn_type,
+            train(simple.label, simple.root_cause, anomaly_index, hetero_graphs_combine, base_output_dir, config.train, rnn=config.rnn_type,
                   attention=config.attention)
