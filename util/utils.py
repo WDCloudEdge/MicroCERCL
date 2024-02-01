@@ -1,5 +1,5 @@
 from sklearn import preprocessing
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 import pandas as pd
 from datetime import datetime
 import pytz
@@ -45,8 +45,9 @@ def normalize_dataframe(data):
 
 
 def normalize_series(data):
-    scaler = MinMaxScaler()
-    normalized_data = scaler.fit_transform(data.values.reshape(-1, 1))
+    # scaler = StandardScaler()
+    # normalized_data = scaler.fit_transform(data.values.reshape(-1, 1))
+    normalized_data = preprocessing.normalize(data.fillna(0).values.reshape(-1, 1), axis=0)
     normalized_series = pd.Series(normalized_data.flatten())
     return normalized_series
 

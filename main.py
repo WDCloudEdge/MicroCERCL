@@ -13,7 +13,7 @@ from anomaly_detection import get_timestamp_index
 import pandas as pd
 
 if __name__ == "__main__":
-    namespaces = ['bookinfo', 'hipster', 'hipster2', 'cloud-sock-shop', 'horsecoder-test']
+    namespaces = ['bookinfo', 'hipster', 'cloud-sock-shop', 'horsecoder-test']
     config = Config()
 
 
