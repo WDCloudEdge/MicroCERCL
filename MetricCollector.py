@@ -112,7 +112,7 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
                                    'server-2': 'edge-1',
                                    'server-3': 'edge-2',
                                    'dell2018': 'edge-2'}
-    masks = ['ingress', 'unknown', 'load-pod', 'load-pod-cloud', 'istio-ingressgateway']
+    masks = ['ingress', 'unknown', 'load-pod', 'load-pod-cloud', 'istio-ingressgateway', 'reviews-v1-edge', 'details-v1-edge', 'productcatalogservice-edge', 'recommendationservice-edge', 'carts-cloud-jjn2j', 'carts-cloud-hxv26', 'carts-cloud-jlt67', 'carts-cloud-czcwz', 'horsecoder-pay-web-deployment-7b85dfccc9-cwdph', 'horsecoder-pay-deployment-f5b6d5d4b-tn6vt']
     for timestamp in combine_timestamp:
         g = nx.DiGraph()
         svc_call_list = svc_timestamp_map.get(timestamp, None)
