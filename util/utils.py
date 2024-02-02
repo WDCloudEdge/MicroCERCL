@@ -88,6 +88,7 @@ def top_k_node(sorted_dict_node, root_cause, output_file):
         if ('-' in root_cause and key in root_cause) or root_cause in key:
             is_top_k = True
     print(f"top_k: {top_k}", file=output_file)
+    print(f"root_cause: {root_cause}, top_k: {top_k}")
 
 
 def top_k_node_time_series(sorted_dict_node_time_series, root_cause, output_file):
