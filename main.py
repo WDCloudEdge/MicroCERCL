@@ -28,21 +28,6 @@ if __name__ == "__main__":
 
     simples: List[Simple] = [
         Simple(
-            1706236200, 1706236980, 'label-reviews-v3-edge-net-latency-1', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-1'
-        ),
-        Simple(
-            1706237100, 1706237880, 'label-reviews-v3-edge-net-latency-2', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-2'
-        ),
-        Simple(
-            1706238000, 1706238780, 'label-reviews-v3-edge-net-latency-3', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-3'
-        ),
-        Simple(
-            1706238900, 1706239680, 'label-reviews-v3-edge-net-latency-4', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-4'
-        ),
-        Simple(
-            1706239800, 1706240580, 'label-reviews-v3-edge-net-latency-5', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-net-5'
-        ),
-        Simple(
             1706227200, 1706227980, 'label-reviews-v3-edge-cpu-1', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-1'
         ),
         Simple(
