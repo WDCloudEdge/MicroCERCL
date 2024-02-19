@@ -77,7 +77,7 @@ def get_anomaly_by_df(base_dir, file_dir, label, begin_timestamp, end_timestamp)
     return anomalies, anomaly_time_series
 
 
-def anomaly_detection_with_smoothing(df, masks=None, threshold=0.05, smoothing_window=6, n=6):
+def anomaly_detection_with_smoothing(df, masks=None, threshold=0.07, smoothing_window=6, n=6):
     # anomaly detection on response time of service invocation.
     # input: response times of service invocations, threshold for birch clustering
     # output: anomalous service invocation
@@ -125,7 +125,7 @@ def anomaly_detection_with_smoothing(df, masks=None, threshold=0.05, smoothing_w
     return anomalies, anomaly_time_series_index
 
 
-def anomaly_detection_with_smoothing_series(series, threshold=0.05, smoothing_window=6, n=6):
+def anomaly_detection_with_smoothing_series(series, threshold=0.07, smoothing_window=6, n=6):
     anomaly_time_series_index = []
     metrics = normalize_series(series)
     metrics = metrics.rolling(
