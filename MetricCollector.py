@@ -112,7 +112,6 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
                                    'server-2': 'edge-1',
                                    'server-3': 'edge-2',
                                    'dell2018': 'edge-2'}
-    masks = ['ingress', 'unknown', 'load-pod', 'load-pod-cloud', 'istio-ingressgateway', 'reviews-v1-edge', 'details-v1-edge', 'productcatalogservice-edge', 'recommendationservice-edge', 'carts-cloud-jjn2j', 'carts-cloud-hxv26', 'carts-cloud-jlt67', 'carts-cloud-czcwz', 'horsecoder-pay-web-deployment-7b85dfccc9-cwdph', 'horsecoder-pay-deployment-f5b6d5d4b-tn6vt']
     for timestamp in combine_timestamp:
         g = nx.DiGraph()
         svc_call_list = svc_timestamp_map.get(timestamp, None)
@@ -121,7 +120,7 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
             for svc_call in svc_call_list:
                 source = svc_call[0]
                 destination = svc_call[1]
-                if source in masks or destination in masks:
+                if source in config.masks or destination in config.masks:
                     continue
                 g.add_edge(source, destination)
                 g.nodes[source]['type'] = NodeType.SVC.value
@@ -137,22 +136,23 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
             for pod in pod_list:
                 source = pod[0]
                 destination = pod[1]
-                if source in masks or destination in masks:
-                    continue
-                # pod node 双向边
-                g.add_edge(source, destination)
-                g.add_edge(destination, source)
-                center = node_center[destination]
-                g.nodes[source]['type'] = NodeType.POD.value
-                g.nodes[source]['center'] = center
-                g.nodes[destination]['type'] = NodeType.NODE.value
-                g.nodes[destination]['center'] = center
                 for svc in svc_exist:
                     if svc in source:
                         svc_pods = svc_pods_map.get(svc, [])
                         svc_pods.append(source)
                         svc_pods = list(set(svc_pods))
                         svc_pods_map[svc] = svc_pods
+                center = node_center[destination]
+                g.add_node(source)
+                g.nodes[source]['type'] = NodeType.POD.value
+                g.nodes[source]['center'] = center
+                if source in config.masks or destination in config.masks:
+                    continue
+                # pod node 双向边
+                g.add_edge(source, destination)
+                g.add_edge(destination, source)
+                g.nodes[destination]['type'] = NodeType.NODE.value
+                g.nodes[destination]['center'] = center
             for svc in svc_pods_map:
                 svc_pods = svc_pods_map[svc]
                 for svc_pod in svc_pods:

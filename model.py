@@ -53,12 +53,10 @@ class UnsupervisedGNN(nn.Module):
                                              attention=attention,
                                              svc_feat_num=
                                              graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
-                                             node_feat_num=
-                                             graph.hetero_graph.nodes[NodeType.NODE.value].data['feat'].shape[
-                                                 2],
+                                             node_feat_num=None,
                                              instance_feat_num=
                                              graph.hetero_graph.nodes[NodeType.POD.value].data['feat'].shape[2])
-        self.time_conv = TimeUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn)
+        # self.time_conv = TimeUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn)
         self.epoch = 0
 
     def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):
@@ -94,7 +92,7 @@ def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Di
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
     model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
     if torch.cuda.is_available():
-        model = model.to('cuda:0')
+        model = model.to('cpu')
     label = label
     root_cause_file = label + '_' + rnn.value + ('_atten' if attention else '')
     model_file = 'model_weights' + '_' + label + '_' + rnn.value + (

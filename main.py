@@ -1,3 +1,4 @@
+import os
 import sys
 import networkx as nx
 from Config import Config
@@ -8,14 +9,13 @@ from graph import combine_ns_graphs, graph_weight_ns, graph_weight, GraphIndex, 
     HeteroWithGraphIndex, graph_dump
 from model import train
 from anomaly_detection import get_anomaly_by_df
-from util.utils import time_string_2_timestamp, timestamp_2_time_string, df_time_limit
+from util.utils import *
 from anomaly_detection import get_timestamp_index
 import pandas as pd
 
 if __name__ == "__main__":
-    namespaces = ['bookinfo', 'hipster', 'cloud-sock-shop', 'horsecoder-test']
+    namespaces = ['bookinfo', 'hipster', 'hipster2', 'cloud-sock-shop', 'horsecoder-test']
     config = Config()
-
 
     class Simple:
         def __init__(self, global_now_time, global_end_time, label, root_cause, dir):
@@ -25,39 +25,47 @@ if __name__ == "__main__":
             self.root_cause = root_cause
             self.dir = dir
 
+    def read_label_logs(namespace_path, label_service, simple_list: [Simple], minute):
+        label_file_folder = os.path.join(namespace_path, label_service)
+        dirs = []
+        for item in os.listdir(label_file_folder):
+            if os.path.isdir(os.path.join(label_file_folder, item)):
+                dirs.append(item)
+        if simple_list is None:
+            simple_list = []
+        file_path = os.path.join(label_file_folder, label_service + '_label.txt')
+        try:
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+                # 如果文件为空则跳过
+                if not lines:
+                    return simple_list
+                for line in lines:
+                    if 'cpu_' in line or 'mem_' in line or 'net_' in line:
+                        label_line = line.strip()
+                        label_line_label = label_line.split('_')[1] + '_' + label_line.split('_')[3]
+                        for dr in dirs:
+                            if label_line_label in dr:
+                                root_cause = dr[dr.rfind(label_service):dr.rfind(label_line_label) - 1]
+                                dd = dr
+                        if root_cause is None:
+                            sys.exit(1)
+                        simple = Simple(None, None, label_line, root_cause, dd)
+                    elif 'start create' in line:
+                        begin = line[:19]
+                    elif 'finish delete' in line:
+                        end = line[:19]
+                        simple.global_now_time = time_string_2_timestamp_beijing(begin) - 30 * (minute - 3)
+                        simple.global_end_time = time_string_2_timestamp_beijing(end) + 30 * (minute - 3)
+                        simple_list.append(simple)
+        except Exception as e:
+            print(f"Error reading file {file_path}: {e}")
 
-    simples: List[Simple] = [
-        Simple(
-            1706227200, 1706227980, 'label-reviews-v3-edge-cpu-1', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-1'
-        ),
-        Simple(
-            1706228100, 1706228880, 'label-reviews-v3-edge-cpu-2', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-2'
-        ),
-        Simple(
-            1706229000, 1706229780, 'label-reviews-v3-edge-cpu-3', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-3'
-        ),
-        Simple(
-            1706229900, 1706230680, 'label-reviews-v3-edge-cpu-4', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-4'
-        ),
-        Simple(
-            1706230800, 1706231580, 'label-reviews-v3-edge-cpu-5', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-cpu-5'
-        ),
-        Simple(
-            1706231700, 1706232480, 'label-reviews-v3-edge-mem-1', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-1'
-        ),
-        Simple(
-            1706232600, 1706233380, 'label-reviews-v3-edge-mem-2', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-2'
-        ),
-        Simple(
-            1706233500, 1706234280, 'label-reviews-v3-edge-mem-3', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-3'
-        ),
-        Simple(
-            1706234400, 1706235180, 'label-reviews-v3-edge-mem-4', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-4'
-        ),
-        Simple(
-            1706235300, 1706236080, 'label-reviews-v3-edge-mem-5', 'reviews-v3-edge', 'abnormal/bookinfo/reviews-v3-edge/bookinfo-reviews-v3-edge-mem-5'
-        ),
-    ]
+
+    simples: List[Simple] = []
+    root_cause_service = 'adservice'
+    base_output_dir = os.path.join('data/abnormal', config.namespace)
+    read_label_logs(base_output_dir, root_cause_service, simples, 15)
     for simple in simples:
         print(simple.label)
         global_now_time = simple.global_now_time
@@ -70,8 +78,7 @@ if __name__ == "__main__":
 
         folder = '.'
         graphs_time_window: Dict[str, Dict[str, nx.DiGraph]] = {}
-        base_dir = './data/' + str(simple.dir)
-        base_output_dir = './data/abnormal/bookinfo'
+        base_dir = os.path.join(base_output_dir, root_cause_service, str(simple.dir))
         time_pair_list = []
         time_pair_index = {}
         now_time = global_now_time
@@ -83,7 +90,7 @@ if __name__ == "__main__":
                 config.end = end_time
             now_time += config.duration + config.step
             time_pair_list.append((config.start, config.end))
-            df = pd.read_csv(base_dir + '/hipster/' + 'latency.csv')
+            df = pd.read_csv(base_dir + '/hipster/metrics/' + 'latency.csv')
             df = df_time_limit(df, config.start, config.end)
             df_time_index, df_index_time = get_timestamp_index(df)
             time_pair_index[(config.start, config.end)] = df_time_index
@@ -91,7 +98,6 @@ if __name__ == "__main__":
         topology_change_time_window_list = []
         for ns in namespaces:
             config.namespace = ns
-            data_folder = base_dir + '/' + config.namespace
             time_change_ns = [timestamp_2_time_string(global_now_time), timestamp_2_time_string(global_end_time)]
             topology_change_time_window_list.extend(time_change_ns)
         topology_change_time_window_list = sorted(list(set(topology_change_time_window_list)))
@@ -100,7 +106,7 @@ if __name__ == "__main__":
             config.svcs.clear()
             config.pods.clear()
             count = 1
-            data_folder = base_dir + '/' + config.namespace
+            data_folder = base_dir + '/' + config.namespace + '/metrics'
             for time_pair in time_pair_list:
                 config.start = time_pair[0]
                 config.end = time_pair[1]
@@ -125,7 +131,7 @@ if __name__ == "__main__":
         for time_pair in time_pair_list:
             time_key = str(time_pair[0]) + '-' + str(time_pair[1])
             for ns in namespaces:
-                data_folder = base_dir + '/' + ns
+                data_folder = base_dir + '/' + ns + '/metrics'
                 anomaly_list = anomalies.get(time_key, [])
                 anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(base_output_dir, data_folder, simple.label, time_pair[0], time_pair[1])
                 anomaly_list.extend(anomalies_ns)
@@ -166,7 +172,7 @@ if __name__ == "__main__":
                     return index
 
 
-                graph_weight(begin_t, end_t, graph, base_dir)
+                # graph_weight(begin_t, end_t, graph, base_dir)
                 # graph dump
                 graph_dump(graph, base_dir, begin_t + '-' + end_t)
                 for t in t_index_time_window:

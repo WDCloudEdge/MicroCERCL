@@ -28,23 +28,23 @@ class AggrHGraphConvLayer(nn.Module):
         self.node_feat_num = node_feat_num
         self.conv = dglnn.HeteroGraphConv({
             EdgeType.SVC_CALL_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel),
-            EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
-            EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, out_channel),
+            # EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
+            # EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, out_channel),
             EdgeType.INSTANCE_INSTANCE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
             EdgeType.SVC_INSTANCE_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel),
             EdgeType.INSTANCE_SVC_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel)
         },
             aggregate='mean')
         if th.cuda.is_available():
-            self.conv = self.conv.to('cuda:0')
+            self.conv = self.conv.to('cpu')
         self.activation = nn.ReLU()
 
     def forward(self, graph: HeteroWithGraphIndex, feat_dict):
         dict = self.conv(graph.hetero_graph, feat_dict)
-        node_feat = dict[NodeType.NODE.value]
+        # node_feat = dict[NodeType.NODE.value]
         instance_feat = dict[NodeType.POD.value]
         svc_feat = dict[NodeType.SVC.value]
-        return self.activation(th.cat([node_feat, instance_feat, svc_feat], dim=0))
+        return self.activation(th.cat([instance_feat, svc_feat], dim=0))
         # dict[NodeType.NODE.value] = self.activation(dict[NodeType.NODE.value])
         # dict[NodeType.POD.value] = self.activation(dict[NodeType.POD.value])
         # dict[NodeType.SVC.value] = self.activation(dict[NodeType.SVC.value])
@@ -89,14 +89,14 @@ class AggrHGraphConvWindow(nn.Module):
             for index in range(data.shape[0]):
                 data_at_time_index.append(data[index][n])
             if th.cuda.is_available():
-                return th.stack(data_at_time_index, dim=1).to('cuda:0').T
+                return th.stack(data_at_time_index, dim=1).to('cpu').T
             else:
                 return th.stack(data_at_time_index, dim=1).T
 
         for i in range(graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[1]):
             feat_dict = {
-                NodeType.NODE.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.NODE.value].data[
-                    'feat']),
+                # NodeType.NODE.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.NODE.value].data[
+                #     'feat']),
                 NodeType.SVC.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.SVC.value].data[
                     'feat']),
                 NodeType.POD.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.POD.value].data[
@@ -115,11 +115,11 @@ class AggrHGraphConvWindow(nn.Module):
             # for idx, batch_sequence in enumerate(batch_sequence_list):
             #     # batch_sequence[1] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
             #     input_data_list[combinations_numbers[idx][1]] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
-        center_node_index: Dict[str, Set[str]] = {}
-        graph_anomaly_node_index = {}
-        for center in graph.center_type_index:
-            center_node_index[center] = graph.center_type_index[center][NodeType.NODE.value]
-        graph_center_node_index = copy.deepcopy(center_node_index)
+        # center_node_index: Dict[str, Set[str]] = {}
+        # graph_anomaly_node_index = {}
+        # for center in graph.center_type_index:
+        #     center_node_index[center] = graph.center_type_index[center][NodeType.NODE.value]
+        # graph_center_node_index = copy.deepcopy(center_node_index)
         node_num = len(graph.hetero_graph_index.index[NodeType.NODE.value])
         instance_num = len(graph.hetero_graph_index.index[NodeType.POD.value])
 
@@ -310,7 +310,7 @@ class AggrUnsupervisedGNN(nn.Module):
                                           svc_feat_num=svc_feat_num, instance_feat_num=instance_feat_num,
                                           node_feat_num=node_feat_num, rnn=rnn,
                                           attention=attention)
-        self.precessor_neighbor_weight = nn.Parameter(th.ones(1, len(anomaly_index), requires_grad=True, device='cuda:0'))
+        self.precessor_neighbor_weight = nn.Parameter(th.ones(1, len(anomaly_index), requires_grad=True, device='cpu'))
         self.anomaly_index = anomaly_index
         self.criterion = nn.MSELoss()
         # self.criterion = nn.L1Loss()

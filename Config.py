@@ -20,7 +20,7 @@ class Config:
         self.collect = False
         self.rnn_type = RnnType.LSTM
         self.attention = False
-        self.namespace = 'bookinfo'
+        self.namespace = 'hipster'
         self.nodes = None
         self.svcs = set()
         self.pods = set()
@@ -48,6 +48,8 @@ class Config:
 
         # graph
         self.graph_min_gap = 12 * self.step
+
+        self.masks = ['izbp16opgy3xucvexwqp9dz', 'istio-ingressgateway', 'izbp1gwb52uyj3g0wn52lfz', 'adservice-edge', 'productcatalogservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown']
 
 
 class Node:

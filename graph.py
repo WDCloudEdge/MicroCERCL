@@ -125,7 +125,7 @@ def combine_ns_graphs(graphs_time_window: Dict[str, nx.DiGraph]) -> Dict[str, nx
 
 def graph_weight_ns(begin_time, end_time, graph: nx.DiGraph, dir, namespace):
     print('weight graph ns')
-    ns_dir = dir + '/' + namespace
+    ns_dir = dir + '/' + namespace + '/metrics'
     instance_df = util.df_time_limit_normalization(pd.read_csv(ns_dir + '/instance.csv'), begin_time, end_time)
     svc_df = util.df_time_limit_normalization(pd.read_csv(ns_dir + '/latency.csv'), begin_time, end_time)
 
@@ -285,7 +285,7 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
             }
         )
         if th.cuda.is_available():
-            _hg = _hg.to('cuda:0')
+            _hg = _hg.to('cpu')
         for type in type_map:
             type_list = type_map[type]
             for node_index in type_list:
@@ -293,13 +293,13 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                     feat_zeros = th.zeros((_hg.number_of_nodes(type), graph.nodes[node_index.name]['data'].shape[0],
                                            graph.nodes[node_index.name]['data'].shape[1]), dtype=th.float32)
                     if th.cuda.is_available():
-                        _hg.nodes[type].data['feat'] = feat_zeros.to('cuda:0')
+                        _hg.nodes[type].data['feat'] = feat_zeros.to('cpu')
                     else:
                         _hg.nodes[type].data['feat'] = feat_zeros
                 feat_data = th.tensor(graph.nodes[node_index.name]['data'].values,
                                       dtype=th.float32)
                 if th.cuda.is_available():
-                    _hg.nodes[type].data['feat'][node_index.index] = feat_data.to('cuda:0')
+                    _hg.nodes[type].data['feat'][node_index.index] = feat_data.to('cpu')
                 else:
                     _hg.nodes[type].data['feat'][node_index.index] = feat_data
         # 划分多中心子图

@@ -30,6 +30,33 @@ def timestamp_2_time_string(timestamp):
     return dt_object.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def timestamp_2_time_string_beijing(timestamp):
+    # 设置北京时区
+    beijing_tz = pytz.timezone('Asia/Shanghai')
+
+    # 将时间戳转换为 datetime 对象
+    dt_object = datetime.utcfromtimestamp(timestamp).replace(tzinfo=pytz.utc)
+
+    # 将 datetime 对象转换为北京时间
+    dt_object = dt_object.astimezone(beijing_tz)
+
+    return dt_object.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def time_string_2_timestamp_beijing(time_string):
+    # 设置北京时区
+    beijing_tz = pytz.timezone('Asia/Shanghai')
+
+    # 将时间字符串转换为 datetime 对象
+    dt_object = datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')
+
+    # 将 datetime 对象转换为北京时间
+    dt_object = beijing_tz.localize(dt_object)
+
+    # 使用 timestamp() 将 datetime 对象转换为时间戳
+    return int(dt_object.timestamp())
+
+
 def normalize_dataframe(data):
     # 获取 DataFrame 的列名
     data_without_time = data.drop(['timestamp'], axis=1)
@@ -66,10 +93,10 @@ def df_time_limit(df, begin_timestamp, end_timestamp):
             end_index = index
             break
     if max_timestamp < int(end_timestamp):
-        end_index = df.shape[0] + 1
+        end_index = df.shape[0] - 1
     if time_string_2_timestamp(df.loc[end_index]['timestamp']) == int(end_timestamp):
         end_index += 1
-    df = df.loc[begin_index:end_index - 1]
+    df = df.loc[begin_index:end_index]
     df = df.reset_index(drop=True)
     return df
 
