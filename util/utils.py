@@ -112,10 +112,11 @@ def top_k_node(sorted_dict_node, root_cause, output_file):
         if not is_top_k:
             top_k += 1
         print(f"{key}: {value}", file=output_file)
-        if ('-' in root_cause and key in root_cause) or root_cause in key:
+        if ('edge' in root_cause and 'edge' in key and key in root_cause) or ('edge' not in root_cause and 'edge' not in key and key in root_cause):
             is_top_k = True
     print(f"top_k: {top_k}", file=output_file)
     print(f"root_cause: {root_cause}, top_k: {top_k}")
+    return top_k
 
 
 def top_k_node_time_series(sorted_dict_node_time_series, root_cause, output_file):
@@ -128,3 +129,41 @@ def top_k_node_time_series(sorted_dict_node_time_series, root_cause, output_file
         if ('-' in root_cause and key[:key.rfind('-')] in root_cause) or root_cause in key[:key.rfind('-')]:
             is_top_k = True
     print(f"top_k: {top_k}", file=output_file)
+
+
+def print_pr_rank(nums, rank, file):
+    pr = 0
+    fill_nums = []
+    for num in nums:
+        if num != 0:
+            fill_nums.append(num)
+    for num in fill_nums:
+        if num <= rank:
+            pr += 1
+    pr_ = round(pr / len(fill_nums), 3)
+    with open(file, "a") as output_file:
+        print('PR@' + str(rank) + ': ' + str(pr_), file=output_file)
+    return pr_
+
+
+def print_pr(nums, file):
+    pr_1 = print_pr_rank(nums, 1, file)
+    pr_2 = print_pr_rank(nums, 2, file)
+    pr_3 = print_pr_rank(nums, 3, file)
+    pr_4 = print_pr_rank(nums, 4, file)
+    pr_5 = print_pr_rank(nums, 5, file)
+    pr_6 = print_pr_rank(nums, 6, file)
+    pr_7 = print_pr_rank(nums, 7, file)
+    pr_8 = print_pr_rank(nums, 8, file)
+    pr_9 = print_pr_rank(nums, 9, file)
+    pr_10 = print_pr_rank(nums, 10, file)
+    avg_1 = pr_1
+    avg_3 = round((pr_1 + pr_2 + pr_3) / 3, 3)
+    avg_5 = round((pr_1 + pr_2 + pr_3 + pr_4 + pr_5) / 5, 3)
+    avg_10 = round((pr_1 + pr_2 + pr_3 + pr_4 + pr_5 + pr_6 + pr_7 + pr_8 + pr_9 + pr_10) / 10, 3)
+    with open(file, "a") as output_file:
+        print('AVG@1:' + str(avg_1), file=output_file)
+        print('AVG@3:' + str(avg_3), file=output_file)
+        print('AVG@5:' + str(avg_5), file=output_file)
+        print('AVG@10:' + str(avg_10), file=output_file)
+    return pr_1, pr_3, pr_5, pr_10, avg_1, avg_3, avg_5, avg_10

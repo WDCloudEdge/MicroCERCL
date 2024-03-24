@@ -25,7 +25,8 @@ class Config:
         self.svcs = set()
         self.pods = set()
 
-        self.interval = 15 * 60
+        self.time_window = 15
+        self.interval = self.time_window * 60
         # duration related to interval
         self.duration = self.interval
         self.window_size = 60
@@ -49,7 +50,29 @@ class Config:
         # graph
         self.graph_min_gap = 12 * self.step
 
-        self.masks = ['izbp16opgy3xucvexwqp9dz', 'istio-ingressgateway', 'izbp1gwb52uyj3g0wn52lfz', 'adservice-edge', 'productcatalogservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown']
+        # anomaly threshold
+        self.anomaly_threshold = 0.03
+        self.delta = 1e-5
+        self.min_epoch = 200
+        self.patience = 5
+
+        self.masks = {
+            'adservice': ['izbp16opgy3xucvexwqp9dz', 'istio-ingressgateway', 'izbp1gwb52uyj3g0wn52lfz', 'adservice-edge', 'productcatalogservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown'],
+            'adservice-edge': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'productcatalogservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'adservice', 'dell2018', 'unknown', 'cartservice-edge'],
+            'cartservice': ['izbp16opgy3xucvexwqp9dz', 'istio-ingressgateway', 'currencyservice-edge', 'adservice-edge', 'productcatalogservice-edge', 'cartservice-edge', 'izbp1gwb52uyj3g0wn52lfz', 'unknown', 'dell2018'],
+            'checkoutservice': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'productcatalogservice-edge', 'adservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown', 'cartservice-edge'],
+            'currencyservice': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'productcatalogservice-edge', 'adservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown', 'cartservice-edge'],
+            'emailservice': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'productcatalogservice-edge', 'adservice', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown', 'cartservice-edge'],
+            'emailservice-edge': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'productcatalogservice-edge', 'dell2018', 'unknown', 'adservice', 'izbp1gwb52uyj3g0wn52lez', 'cartservice-edge'],
+            'frontend': ['istio-ingressgateway', 'izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'adservice-edge', 'productcatalogservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown'],
+            'paymentservice': ['izbp16opgy3xucvexwqp9dz', 'istio-ingressgateway', 'izbp1gwb52uyj3g0wn52lfz', 'adservice', 'productcatalogservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown', 'cartservice-edge'],
+            'paymentservice-edge': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'productcatalogservice-edge', 'adservice-edge', 'checkoutservice-6f9b7759b4-2x9sk', 'izbp1gwb52uyj3g0wn52lez', 'unknown', 'dell2018', 'cartservice-edge'],
+            'productcatalogservice': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'unknown', 'productcatalogservice-edge', 'adservice', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'cartservice-edge'],
+            'productcatalogservice-edge': ['istio-ingressgateway', 'izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'unknown', 'adservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'cartservice-edge'],
+            'recommendationservice': ['istio-ingressgateway', 'izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'unknown', 'productcatalogservice-edge', 'adservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018'],
+            'shippingservice': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'izbp1gwb52uyj3g0wn52lez', 'productcatalogservice-edge', 'adservice', 'unknown', 'dell2018', 'cartservice-edge'],
+            'shippingservice-edge': ['izbp16opgy3xucvexwqp9dz', 'izbp1gwb52uyj3g0wn52lfz', 'istio-ingressgateway', 'productcatalogservice-edge', 'adservice-edge', 'izbp1gwb52uyj3g0wn52lez', 'dell2018', 'unknown', 'cartservice-edge'],
+        }
 
 
 class Node:

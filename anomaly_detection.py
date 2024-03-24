@@ -6,14 +6,14 @@ import pandas as pd
 from util.utils import df_time_limit_normalization, df_time_limit, normalize_series, time_string_2_timestamp
 
 
-def get_anomaly_by_df(base_dir, file_dir, label, begin_timestamp, end_timestamp):
+def get_anomaly_by_df(config, base_dir, file_dir, label, begin_timestamp, end_timestamp):
     anomalies = []
     # todo 统计时间戳的严重程度
     anomaly_time_series = {}
     # read call latency data
     call_data = pd.read_csv(file_dir + '/' + 'call.csv')
     anomaly_svc_calls, anomaly_call_time_series_index = anomaly_detection_with_smoothing(
-        df_time_limit(call_data, begin_timestamp, end_timestamp), masks=['p50', 'p99'])
+        df_time_limit(call_data, begin_timestamp, end_timestamp), masks=['p50', 'p99'], threshold=config.anomaly_threshold)
     anomaly_time_series_index_combine = {}
     for node in anomaly_call_time_series_index:
         callee = node[:node.rfind('&')].split('_')[1]
@@ -28,7 +28,7 @@ def get_anomaly_by_df(base_dir, file_dir, label, begin_timestamp, end_timestamp)
     # read svc latency data
     latency_data = pd.read_csv(file_dir + '/' + 'latency.csv')
     anomaly_svcs, anomaly_latency_time_series_index = anomaly_detection_with_smoothing(
-        df_time_limit(latency_data, begin_timestamp, end_timestamp), masks=['p50', 'p99'])
+        df_time_limit(latency_data, begin_timestamp, end_timestamp), masks=['p50', 'p99'], threshold=config.anomaly_threshold)
     for latency_node in anomaly_latency_time_series_index:
         node = latency_node[:latency_node.rfind('&')]
         node_index = anomaly_time_series_index_combine.get(node, [])
@@ -41,7 +41,7 @@ def get_anomaly_by_df(base_dir, file_dir, label, begin_timestamp, end_timestamp)
     qps_file_name = file_dir + '/' + 'svc_qps.csv'
     qps_source_data = pd.read_csv(qps_file_name)
     anomaly_qps, anomaly_qps_time_series_index = anomaly_detection_with_smoothing(
-        df_time_limit(qps_source_data, begin_timestamp, end_timestamp))
+        df_time_limit(qps_source_data, begin_timestamp, end_timestamp), threshold=config.anomaly_threshold)
     for node in anomaly_qps_time_series_index:
         node_index = anomaly_time_series_index_combine.get(node, [])
         node_index.extend(anomaly_qps_time_series_index[node])
@@ -52,7 +52,7 @@ def get_anomaly_by_df(base_dir, file_dir, label, begin_timestamp, end_timestamp)
     success_rate_file_name = file_dir + '/' + 'success_rate.csv'
     success_rate_source_data = pd.read_csv(success_rate_file_name)
     anomaly_success_rate, anomaly_success_rate_time_series_index = anomaly_detection_with_smoothing(
-        df_time_limit(success_rate_source_data, begin_timestamp, end_timestamp))
+        df_time_limit(success_rate_source_data, begin_timestamp, end_timestamp), threshold=config.anomaly_threshold)
     for node in anomaly_success_rate_time_series_index:
         node_index = anomaly_time_series_index_combine.get(node, [])
         node_index.extend(anomaly_success_rate_time_series_index[node])
@@ -63,7 +63,7 @@ def get_anomaly_by_df(base_dir, file_dir, label, begin_timestamp, end_timestamp)
     instance_file_name = file_dir + '/' + 'instance.csv'
     instance_source_data = pd.read_csv(instance_file_name)
     anomalies_index = df_time_limit_normalization_ctn_anomalies_with_index(instance_source_data, begin_timestamp,
-                                                                           end_timestamp)
+                                                                           end_timestamp, threshold=config.anomaly_threshold)
     anomalies.extend([a_instance[:a_instance.rfind('_')] for a_instance in anomalies_index.keys()])
     anomalies = list(set(anomalies))
     if 'istio-ingressgateway' in anomalies:
@@ -159,7 +159,7 @@ def anomaly_detection_with_smoothing_series(series, threshold=0.03, smoothing_wi
     return is_anomaly, list(set(anomaly_time_series_index))
 
 
-def df_time_limit_normalization_ctn_anomalies_with_index(df, begin_timestamp, end_timestamp):
+def df_time_limit_normalization_ctn_anomalies_with_index(df, begin_timestamp, end_timestamp, threshold):
     df = df_time_limit(df, begin_timestamp, end_timestamp)
     df_time_index, df_index_time = get_timestamp_index(df)
     anomalies_index = {}
@@ -184,7 +184,7 @@ def df_time_limit_normalization_ctn_anomalies_with_index(df, begin_timestamp, en
                 for i in range(0, len(index) - 1, 2):
                     series_list.append(metrics[index[i]:index[i + 1] + 1])
                 prune_series = pd.concat(series_list, axis=0)
-            is_anomaly, anomaly_time_series_index = anomaly_detection_with_smoothing_series(prune_series)
+            is_anomaly, anomaly_time_series_index = anomaly_detection_with_smoothing_series(prune_series, threshold=threshold)
             if is_anomaly:
                 anomalies_index[node] = [df_index_time[idx + index[0]] for idx in anomaly_time_series_index]
     return anomalies_index

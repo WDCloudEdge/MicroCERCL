@@ -87,7 +87,7 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex], dir: str = '',
+def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex], dir: str = '',
           is_train: TrainType = TrainType.EVAL,
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
     model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
@@ -100,7 +100,7 @@ def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Di
     root_cause = root_cause
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
-        early_stopping = EarlyStopping(patience=5, delta=1e-5, min_epoch=200)
+        early_stopping = EarlyStopping(patience=config.patience, delta=config.delta, min_epoch=config.min_epoch)
         if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
             if is_train == TrainType.TRAIN:
                 model.initialize_weights()
@@ -216,4 +216,4 @@ def train(label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Di
             # sorted_dict = dict(sorted(output_score.items(), key=lambda item: item[1], reverse=True))
             sorted_dict_node = dict(sorted(output_score_node.items(), key=lambda item: item[1], reverse=True))
             # top_k_node_time_series(sorted_dict, root_cause, output_file)
-            top_k_node(sorted_dict_node, root_cause, output_file)
+            return top_k_node(sorted_dict_node, root_cause, output_file)
