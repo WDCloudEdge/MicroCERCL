@@ -10,7 +10,7 @@ from graph import combine_timestamps_graph, NodeType, graph_load
 import random
 
 
-def collect_graph(config: Config, _dir: str, collect: bool, masks) -> Dict[str, nx.DiGraph]:
+def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
     graphs_at_timestamp: Dict[str, nx.DiGraph] = {}
     graph_df = pd.DataFrame(columns=['source', 'destination'])
     svc_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
@@ -120,8 +120,6 @@ def collect_graph(config: Config, _dir: str, collect: bool, masks) -> Dict[str, 
             for svc_call in svc_call_list:
                 source = svc_call[0]
                 destination = svc_call[1]
-                if source in masks or destination in masks:
-                    continue
                 g.add_edge(source, destination)
                 g.nodes[source]['type'] = NodeType.SVC.value
                 g.nodes[destination]['type'] = NodeType.SVC.value
@@ -136,8 +134,6 @@ def collect_graph(config: Config, _dir: str, collect: bool, masks) -> Dict[str, 
             for pod in pod_list:
                 source = pod[0]
                 destination = pod[1]
-                if source in masks:
-                    continue
                 for svc in svc_exist:
                     if svc in source:
                         svc_pods = svc_pods_map.get(svc, [])
@@ -148,8 +144,6 @@ def collect_graph(config: Config, _dir: str, collect: bool, masks) -> Dict[str, 
                 g.add_node(source)
                 g.nodes[source]['type'] = NodeType.POD.value
                 g.nodes[source]['center'] = center
-                if destination in masks:
-                    continue
                 # pod node 双向边
                 g.add_edge(source, destination)
                 g.add_edge(destination, source)
@@ -575,13 +569,13 @@ def collect_node_metric(config: Config, _dir: str):
     return df
 
 
-def collect(config: Config, _dir: str, collect: bool, masks) -> Dict[str, nx.DiGraph]:
+def collect(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
     print('collect metrics')
     # 建立文件夹
     if not os.path.exists(_dir):
         os.makedirs(_dir)
     # 收集各种数据
-    graphs: Dict[str, nx.DiGraph] = collect_graph(config, _dir, collect, masks)
+    graphs: Dict[str, nx.DiGraph] = collect_graph(config, _dir, collect)
     if collect:
         collect_call_latency(config, _dir)
         collect_svc_latency(config, _dir)
@@ -616,13 +610,13 @@ def collect_graph_single(config: Config, _dir: str):
     collect_graph(config, _dir, True)
 
 
-def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_window_list, window_size, coll: bool, masks) -> \
+def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_window_list, window_size, coll: bool) -> \
         Dict[
             str, nx.DiGraph]:
     print('collect graphs')
     if not os.path.exists(_dir):
         os.makedirs(_dir)
-    graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll, masks)
+    graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll)
     # for graph_key in graphs:
     #     graph = graphs[graph_key]
     #     graph_svcs_calls = []

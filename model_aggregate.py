@@ -28,8 +28,8 @@ class AggrHGraphConvLayer(nn.Module):
         self.node_feat_num = node_feat_num
         self.conv = dglnn.HeteroGraphConv({
             EdgeType.SVC_CALL_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel),
-            # EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
-            # EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, out_channel),
+            EdgeType.INSTANCE_NODE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
+            EdgeType.NODE_INSTANCE_EDGE.value: dglnn.GraphConv(self.node_feat_num, out_channel),
             EdgeType.INSTANCE_INSTANCE_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel),
             EdgeType.SVC_INSTANCE_EDGE.value: dglnn.GraphConv(self.svc_feat_num, out_channel),
             EdgeType.INSTANCE_SVC_EDGE.value: dglnn.GraphConv(self.instance_feat_num, out_channel)
@@ -41,15 +41,10 @@ class AggrHGraphConvLayer(nn.Module):
 
     def forward(self, graph: HeteroWithGraphIndex, feat_dict):
         dict = self.conv(graph.hetero_graph, feat_dict)
-        # node_feat = dict[NodeType.NODE.value]
+        node_feat = dict[NodeType.NODE.value]
         instance_feat = dict[NodeType.POD.value]
         svc_feat = dict[NodeType.SVC.value]
-        return self.activation(th.cat([instance_feat, svc_feat], dim=0))
-        # dict[NodeType.NODE.value] = self.activation(dict[NodeType.NODE.value])
-        # dict[NodeType.POD.value] = self.activation(dict[NodeType.POD.value])
-        # dict[NodeType.SVC.value] = self.activation(dict[NodeType.SVC.value])
-        # return dict
-        # return th.cat([node_feat, instance_feat, svc_feat], dim=0)
+        return self.activation(th.cat([node_feat, instance_feat, svc_feat], dim=0))
 
 
 class AggrHGraphConvWindow(nn.Module):
@@ -95,8 +90,8 @@ class AggrHGraphConvWindow(nn.Module):
 
         for i in range(graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[1]):
             feat_dict = {
-                # NodeType.NODE.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.NODE.value].data[
-                #     'feat']),
+                NodeType.NODE.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.NODE.value].data[
+                    'feat']),
                 NodeType.SVC.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.SVC.value].data[
                     'feat']),
                 NodeType.POD.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.POD.value].data[
@@ -206,7 +201,6 @@ class AggrHGraphConvWindows(nn.Module):
         self.linear = nn.Linear(self.hidden_size, 1)
         self.output_layer = nn.Softmax(dim=0)
         self.activation = nn.ReLU()
-        # self.pooling = dglnn.GlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, out_channel))
         self.pooling = HeteroGlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, out_channel))
 
     def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):

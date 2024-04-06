@@ -14,7 +14,7 @@ from anomaly_detection import get_timestamp_index
 import pandas as pd
 
 if __name__ == "__main__":
-    namespaces = ['bookinfo', 'hipster', 'hipster2', 'cloud-sock-shop', 'horsecoder-test']
+    namespaces = ['bookinfo', 'hipster', 'cloud-sock-shop', 'horsecoder-test']
     config = Config()
 
     class Simple:
@@ -119,7 +119,7 @@ if __name__ == "__main__":
                     print('第' + str(count) + '次获取 [' + config.namespace + '] 数据')
                     graphs_ns_time_window = MetricCollector.collect_and_build_graphs(config, data_folder,
                                                                                      topology_change_time_window_list,
-                                                                                     config.window_size, config.collect, config.masks[root_cause_service])
+                                                                                     config.window_size, config.collect)
                     graph_time_key = str(time_pair[0]) + '-' + str(time_pair[1])
                     if graph_time_key not in graphs_time_window:
                         graphs_time_window[graph_time_key] = graphs_ns_time_window
@@ -178,7 +178,7 @@ if __name__ == "__main__":
                         return index
 
 
-                    # graph_weight(begin_t, end_t, graph, base_dir)
+                    graph_weight(begin_t, end_t, graph, base_dir)
                     # graph dump
                     graph_dump(graph, base_dir, begin_t + '-' + end_t)
                     for t in t_index_time_window:

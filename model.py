@@ -45,7 +45,8 @@ class EarlyStopping:
 
 # 2. 结合时序异常、拓扑中心点聚集的无监督的图神经网络模型
 class UnsupervisedGNN(nn.Module):
-    def __init__(self, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex], rnn: RnnType = RnnType.LSTM,
+    def __init__(self, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex],
+                 rnn: RnnType = RnnType.LSTM,
                  attention: bool = False):
         super(UnsupervisedGNN, self).__init__()
         graph = graphs[next(iter(graphs))]
@@ -53,7 +54,8 @@ class UnsupervisedGNN(nn.Module):
                                              attention=attention,
                                              svc_feat_num=
                                              graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
-                                             node_feat_num=None,
+                                             node_feat_num=
+                                             graph.hetero_graph.nodes[NodeType.NODE.value].data['feat'].shape[2],
                                              instance_feat_num=
                                              graph.hetero_graph.nodes[NodeType.POD.value].data['feat'].shape[2])
         # self.time_conv = TimeUnsupervisedGNN(out_channels=out_channels, hidden_size=hidden_size, graphs=graphs, rnn=rnn)
@@ -87,7 +89,8 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex], dir: str = '',
+def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex],
+          dir: str = '',
           is_train: TrainType = TrainType.EVAL,
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
     model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)

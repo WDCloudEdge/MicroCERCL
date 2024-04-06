@@ -386,6 +386,7 @@ def graph_dump(graph: nx.Graph, base_dir: str, dump_file):
             graph_copy.nodes[node]['data'] = node_data_dict
         except:
             anomaly_nodes.append(node)
+    graph.remove_nodes_from(anomaly_nodes)
     json_converted = json_graph.node_link_data(graph_copy)
     graph_dir = base_dir + '/graph/'
     if not os.path.exists(graph_dir):
