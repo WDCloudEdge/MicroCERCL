@@ -45,7 +45,8 @@ if __name__ == "__main__":
                         label_line = line.strip()
                         label_line_label = label_line.split('_')[1] + '_' + label_line.split('_')[3]
                         for dr in dirs:
-                            if label_line_label in dr:
+                            dr_splits = dr.split('_')
+                            if label_line_label == (dr_splits[len(dr_splits) - 2] + '_' + dr_splits[len(dr_splits) - 1]):
                                 root_cause = dr[dr.rfind(label_service):dr.rfind(label_line_label) - 1]
                                 dd = dr
                         if root_cause is None:

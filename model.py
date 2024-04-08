@@ -175,21 +175,7 @@ def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], gr
                     output_list = [aggr_feat_list]
             elif is_train == TrainType.EVAL:
                 output_list = [aggr_feat_list]
-            times = graphs.keys()
-            times_sorted = sorted(times)
-            # output_score = {}
             output_score_node = {}
-            # 如果是单图，将aggr_feat按照图节点索引，将特征还原到图上
-            if aggr_feat_list.shape[0] == 1:
-                output = aggr_feat_list[0]
-                window_graph_index = window_graphs_index[0]
-                graph = graphs[times_sorted[0]]
-                n_graph = graph.n_graph.copy()
-                node_features = {}
-                for i in range(output.shape[0]):
-                    node_features[i] = torch.sum(output[0]).item()
-                sorted_dict_node_pagerank = calculate_graph_score(n_graph, node_features, window_graph_index)
-                top_k_node(sorted_dict_node_pagerank, root_cause, output_file)
             for aggr_feat_list in output_list:
                 for idx, window_graph_index in enumerate(window_graphs_index):
                     output = aggr_feat_list[idx]
