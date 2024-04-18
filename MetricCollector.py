@@ -16,14 +16,14 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
     svc_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     pod_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     path = os.path.join(_dir, 'graph.csv')
-    k8s_nodes = [Node('izbp193ioajdcnpofhlr1hz', '172.26.146.178', 'izbp193ioajdcnpofhlr1hz', '', 'Ready', 'cloud'),
+    k8s_nodes = [Node('izbp193ioajdcnpofhlr1hz', '172.26.146.178', 'izbp193ioajdcnpofhlr1hz', '10.244.0.0/24', 'Ready', 'cloud'),
                  Node('izbp16opgy3xucvexwqp9dz', '172.23.182.14', 'izbp16opgy3xucvexwqp9dz', '', 'Ready', 'cloud'),
-                 Node('izbp1gwb52uyj3g0wn52lez', '172.26.146.180', 'izbp1gwb52uyj3g0wn52lez', '', 'Ready', 'cloud'),
-                 Node('izbp1gwb52uyj3g0wn52lfz', '172.26.146.179', 'izbp1gwb52uyj3g0wn52lfz', '', 'Ready', 'cloud'),
-                 Node('server-1', '192.168.31.74', 'server-1', '', 'Ready', 'edge-1'),
-                 Node('server-2', '192.168.31.85', 'server-2', '', 'Ready', 'edge-1'),
-                 Node('server-3', '192.168.31.128', 'server-3', '', 'Ready', 'edge-2'),
-                 Node('dell2018', '192.168.31.208', 'dell2018', '', 'Ready', 'edge-2')]
+                 Node('izbp1gwb52uyj3g0wn52lez', '172.26.146.180', 'izbp1gwb52uyj3g0wn52lez', '10.244.5.0/24', 'Ready', 'cloud'),
+                 Node('izbp1gwb52uyj3g0wn52lfz', '172.26.146.179', 'izbp1gwb52uyj3g0wn52lfz', '10.244.6.0/24', 'Ready', 'cloud'),
+                 Node('server-1', '192.168.31.74', 'server-1', '10.244.8.0/24', 'Ready', 'edge-1'),
+                 Node('server-2', '192.168.31.85', 'server-2', '10.244.12.0/24', 'Ready', 'edge-1'),
+                 Node('server-3', '192.168.31.128', 'server-3', '10.244.9.0/24', 'Ready', 'edge-2'),
+                 Node('dell2018', '192.168.31.208', 'dell2018', '10.244.11.0/24', 'Ready', 'edge-2')]
     if collect:
         prom_util = PrometheusClient(config)
         prom_sql = 'sum(istio_tcp_received_bytes_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace

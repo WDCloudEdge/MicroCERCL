@@ -20,7 +20,7 @@ class Config:
         self.collect = False
         self.rnn_type = RnnType.LSTM
         self.attention = False
-        self.namespace = 'hipster_chaos_2'
+        self.namespace = 'sock_shop_chaos'
         self.nodes = None
         self.svcs = set()
         self.pods = set()
