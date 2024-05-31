@@ -69,6 +69,7 @@ if __name__ == "__main__":
         if os.path.isdir(os.path.join(root_cause_namespace_dir, item)):
             root_cause_services.append(item)
     base_output_dir = os.path.join('data/abnormal', config.namespace)
+    begin_tt = time.time()
     for root_cause_service in root_cause_services:
         top_k_service = []
         simples: List[Simple] = []
@@ -219,3 +220,4 @@ if __name__ == "__main__":
                 top_k_services.append(top_k)
         print_pr(top_k_service, os.path.join(base_output_dir, root_cause_service + '-topk.txt'))
     print_pr(top_k_services, os.path.join(base_output_dir, 'topk.txt'))
+    print('time cost:' + str(time.time() - begin_tt))

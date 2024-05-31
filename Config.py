@@ -51,9 +51,9 @@ class Config:
         self.graph_min_gap = 12 * self.step
 
         # anomaly threshold
-        self.anomaly_threshold = 0.05
+        self.anomaly_threshold = 0.07
         self.delta = 1e-5
-        self.min_epoch = 200
+        self.min_epoch = 10
         self.patience = 5
 
 
