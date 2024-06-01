@@ -147,4 +147,3 @@ if __name__ == '__main__':
     config_local.k8s_config = '../local-config'
     client = KubernetesClient(config_local)
     print(client.get_nodes())
-    # print(client.get_node_ns_pods("izbp16opgy3xucvexwqp9dz", ["bookinfo"]))

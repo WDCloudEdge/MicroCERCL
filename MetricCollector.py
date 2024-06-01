@@ -77,7 +77,6 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
 
     else:
         graph_df = pd.read_csv(path)
-        # graph_df['timestamp'] = pd.to_datetime(graph_df['timestamp'])
         grouped = graph_df.groupby('timestamp')
 
         def is_pod_node(row, nodes: List[Node]):
@@ -144,7 +143,7 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
                 g.add_node(source)
                 g.nodes[source]['type'] = NodeType.POD.value
                 g.nodes[source]['center'] = center
-                # pod node 双向边
+                # pod node
                 g.add_edge(source, destination)
                 g.add_edge(destination, source)
                 g.nodes[destination]['type'] = NodeType.NODE.value
@@ -393,8 +392,6 @@ def collect_ctn_metric(config: Config, _dir: str):
             cpu_df = pd.merge(cpu_df, container_df, on='timestamp', how='outer')
         cpu_df = cpu_df.fillna(0)
     cpu_df = cpu_df.mask((cpu_df == 0) & (pod_df == 0), -1)
-    # mask = np.logical_and(cpu_df.values == 0, pod_df.values == 0)
-    # cpu_df[mask] = -1
     cpu_df.rename(columns=cpu_rename, inplace=True)
 
     mem_rename = {}
@@ -571,10 +568,8 @@ def collect_node_metric(config: Config, _dir: str):
 
 def collect(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
     print('collect metrics')
-    # 建立文件夹
     if not os.path.exists(_dir):
         os.makedirs(_dir)
-    # 收集各种数据
     graphs: Dict[str, nx.DiGraph] = collect_graph(config, _dir, collect)
     if collect:
         collect_call_latency(config, _dir)
@@ -583,7 +578,7 @@ def collect(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
         collect_succeess_rate(config, _dir)
         collect_svc_qps(config, _dir)
         collect_svc_metric(config, _dir)
-        # collect_pod_num(config, _dir)
+        collect_pod_num(config, _dir)
         collect_ctn_metric(config, _dir)
     return graphs
 
@@ -617,29 +612,6 @@ def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_win
     if not os.path.exists(_dir):
         os.makedirs(_dir)
     graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll)
-    # for graph_key in graphs:
-    #     graph = graphs[graph_key]
-    #     graph_svcs_calls = []
-    #     graph_svcs = []
-    #     for edge in graph.edges:
-    #         source = edge[0]
-    #         target = edge[1]
-    #         if graph.nodes[source]['type'] == 'svc' and graph.nodes[target]['type'] == 'svc':
-    #             graph_svcs_calls.append((source, target))
-    #             graph_svcs.append(source)
-    #             graph_svcs.append(target)
-    #     graph_svcs = list(set(graph_svcs))
-    #     for svc_call in graph_svcs_calls:
-    #         s = svc_call[0]
-    #         t = svc_call[1]
-    #         for sn in graph.nodes:
-    #             if s in sn and not s == sn:
-    #                 for tn in graph.nodes:
-    #                     if t in tn and not t == tn:
-    #                         # pass
-    #                         random_number = random.random()
-    #                         if random_number > 0.5:
-    #                             graph.add_edge(sn, tn)
     graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
                                                   window_size)
     return graphs_time_window
