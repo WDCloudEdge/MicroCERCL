@@ -18,10 +18,10 @@ from drain3.template_miner_config import TemplateMinerConfig
 # persistence_type = "KAFKA"
 persistence_type = "FILE"
 
-# folder_path = 'data/normal/test/tcpdump_logs'
+folder_path = 'data/normal/test/tcpdump_logs'
 # folder_path = 'data/normal/20231120/tcpdump_logs'
 # folder_path = 'data/test-20231207/abnormal'
-folder_path = 'data/test-20231207/normal'
+# folder_path = 'data/test-20231207/normal'
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(message)s')
@@ -125,7 +125,7 @@ class UDP_Pair(Pair):
         return self.callee + '-' + self.caller + '-' + self.protocol
 
     def within(self, timestamp):
-        return abs(int(timestamp - self.timestamp)) <= 10
+        return abs(int(timestamp - self.timestamp)) <= 1
 
 
 config = TemplateMinerConfig()

@@ -8,7 +8,6 @@ from util.utils import df_time_limit_normalization, df_time_limit, normalize_ser
 
 def get_anomaly_by_df(config, base_dir, file_dir, label, begin_timestamp, end_timestamp):
     anomalies = []
-    # todo 统计时间戳的严重程度
     anomaly_time_series = {}
     # read call latency data
     call_data = pd.read_csv(file_dir + '/' + 'call.csv')
@@ -23,8 +22,6 @@ def get_anomaly_by_df(config, base_dir, file_dir, label, begin_timestamp, end_ti
     anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
     a_svc_calls = [a[:a.rfind('&')].split('_')[1] for a in anomaly_svc_calls]
     anomalies.extend(a_svc_calls)
-    # for a_svc in a_svc_calls:
-    #     anomalies.extend(a_svc)
     # read svc latency data
     latency_data = pd.read_csv(file_dir + '/' + 'latency.csv')
     anomaly_svcs, anomaly_latency_time_series_index = anomaly_detection_with_smoothing(
@@ -36,7 +33,6 @@ def get_anomaly_by_df(config, base_dir, file_dir, label, begin_timestamp, end_ti
         anomaly_time_series_index_combine[node] = node_index
     anomaly_time_series = {**anomaly_time_series, **anomaly_time_series_index_combine}
     anomalies.extend([a_svc[:a_svc.rfind('&')] for a_svc in anomaly_svcs])
-    # anomalies.extend(anomaly_svcs)
     # qps data
     qps_file_name = file_dir + '/' + 'svc_qps.csv'
     qps_source_data = pd.read_csv(qps_file_name)
@@ -88,7 +84,6 @@ def anomaly_detection_with_smoothing(df, masks=None, threshold=0.03, smoothing_w
     anomaly_time_series_index = {}
     for node, metrics in df.iteritems():
         # No anomaly detection in db
-        # if svc != 'timestamp' and 'Unnamed' not in svc and 'rabbitmq' not in svc and 'db' not in svc:
         if node != 'timestamp' and 'Unnamed' not in node and 'node' not in node and 'tcp' not in node:
             is_mask = False
             for mask in masks:
@@ -112,13 +107,6 @@ def anomaly_detection_with_smoothing(df, masks=None, threshold=0.03, smoothing_w
                 mean_vector = np.mean(X, axis=0)
                 distances_to_cluster_centers = pairwise_distances(X, [mean_vector]).flatten()
                 n_outlying_indices = np.argsort(distances_to_cluster_centers)[-n:]
-            # std_dev = np.std(X)
-            # mean_vector = np.mean(X, axis=0)
-            # distances_to_cluster_centers = pairwise_distances(X, [mean_vector]).flatten()
-            # if std_dev > threshold:
-            #     n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 2 * std_dev)[0]
-            # else:
-            #     n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 3 * std_dev)[0]
                 if len(n_outlying_indices) > 0:
                     anomalies.append(node)
                     anomaly_time_series_index[node] = [df_index_time[item] for item in n_outlying_indices.tolist()]
@@ -132,8 +120,6 @@ def anomaly_detection_with_smoothing_series(series, threshold=0.03, smoothing_wi
         window=smoothing_window, min_periods=1).mean()
     x = np.array(metrics)
     x = np.where(np.isnan(x), -1, x)
-    # normalized_x = preprocessing.normalize([x])
-    # X = normalized_x.reshape(-1, 1)
     X = x.reshape(-1, 1)
     brc = Birch(branching_factor=50, n_clusters=None,
                 threshold=threshold, compute_labels=True)
@@ -146,13 +132,6 @@ def anomaly_detection_with_smoothing_series(series, threshold=0.03, smoothing_wi
         mean_vector = np.mean(X, axis=0)
         distances_to_cluster_centers = pairwise_distances(X, [mean_vector]).flatten()
         n_outlying_indices = np.argsort(distances_to_cluster_centers)[-n:]
-    # std_dev = np.std(X)
-    # mean_vector = np.mean(X, axis=0)
-    # distances_to_cluster_centers = pairwise_distances(X, [mean_vector]).flatten()
-    # if std_dev > threshold:
-    #     n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 2 * std_dev)[0]
-    # else:
-    #     n_outlying_indices = np.where(np.abs(distances_to_cluster_centers - mean_vector) > 3 * std_dev)[0]
         if len(n_outlying_indices) > 0:
             is_anomaly = True
             anomaly_time_series_index.extend(n_outlying_indices)

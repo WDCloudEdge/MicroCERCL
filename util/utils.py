@@ -1,5 +1,4 @@
 from sklearn import preprocessing
-from sklearn.preprocessing import RobustScaler, StandardScaler
 import pandas as pd
 from datetime import datetime
 import pytz
@@ -21,7 +20,6 @@ def ip_2_subnet(ip: str, net_mask: int):
 
 def time_string_2_timestamp(time_string):
     dt_object = datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.utc)
-    # 使用 timestamp() 将 datetime 对象转换为时间戳
     return int(dt_object.timestamp())
 
 
@@ -31,49 +29,28 @@ def timestamp_2_time_string(timestamp):
 
 
 def timestamp_2_time_string_beijing(timestamp):
-    # 设置北京时区
     beijing_tz = pytz.timezone('Asia/Shanghai')
-
-    # 将时间戳转换为 datetime 对象
     dt_object = datetime.utcfromtimestamp(timestamp).replace(tzinfo=pytz.utc)
-
-    # 将 datetime 对象转换为北京时间
     dt_object = dt_object.astimezone(beijing_tz)
-
     return dt_object.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def time_string_2_timestamp_beijing(time_string):
-    # 设置北京时区
     beijing_tz = pytz.timezone('Asia/Shanghai')
-
-    # 将时间字符串转换为 datetime 对象
     dt_object = datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')
-
-    # 将 datetime 对象转换为北京时间
     dt_object = beijing_tz.localize(dt_object)
-
-    # 使用 timestamp() 将 datetime 对象转换为时间戳
     return int(dt_object.timestamp())
 
 
 def normalize_dataframe(data):
-    # 获取 DataFrame 的列名
     data_without_time = data.drop(['timestamp'], axis=1)
-
-    # 对每一列进行归一化操作
     normalized_data = preprocessing.normalize(data_without_time.values, axis=0)
-
-    # 创建新的 DataFrame，使用原始列名
     normalized_df = pd.DataFrame(normalized_data, columns=data_without_time.columns)
     normalized_df['timestamp'] = data['timestamp']
-
     return normalized_df
 
 
 def normalize_series(data):
-    # scaler = StandardScaler()
-    # normalized_data = scaler.fit_transform(data.values.reshape(-1, 1))
     normalized_data = preprocessing.normalize(data.fillna(0).values.reshape(-1, 1), axis=0)
     normalized_series = pd.Series(normalized_data.flatten())
     return normalized_series

@@ -97,7 +97,6 @@ def combine_timestamps_graph(graphs_at_timestamp: Dict[str, nx.DiGraph], namespa
         end = util.time_string_2_timestamp(topology_change_time_window_list[i + 1])
         combine = []
         for timestamp in graphs_at_timestamp:
-            # time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").timestamp()
             time = int(timestamp)
             if begin <= time < end:
                 combine.append(graphs_at_timestamp[timestamp])
@@ -260,10 +259,6 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                 c_name_list.append(u)
                 center_type_name_list[u_type] = list(set(c_name_list))
                 center_name[u_center] = center_type_name_list
-            # todo 判断是否跨网段边
-            # if len(v_center) != 0 and len(u_center) != 0 and u_center != v_center:
-            #     u_type = u_type + '&' + u_center
-            #     v_type = v_type + '&' + v_center
             edge_type = (u_type, f"{u_type}-{get_edge_type(u_type, v_type)}-{v_type}", v_type)
 
             hg_data_dict[edge_type][0].append(index.index[u_type][u])
@@ -302,7 +297,6 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                     _hg.nodes[type].data['feat'][node_index.index] = feat_data.to('cpu')
                 else:
                     _hg.nodes[type].data['feat'][node_index.index] = feat_data
-        # 划分多中心子图
         center_subgraph: Dict[str, DGLHeteroGraph] = {}
         for center in center_index:
             center_type_list = center_index[center]
@@ -350,7 +344,7 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
             anomaly_name_map[type] = anomaly_name_list
             if is_neighbor:
                 neighbor_key = 'neighbor'
-                # 找到异常传播前继节点
+                # find precessor nodes of the anomaly node
                 predecessors = list(graph.predecessors(anomaly))
                 for n in predecessors:
                     type = graph.nodes[n]['type']
@@ -416,7 +410,6 @@ def graph_load(base_dir: str, file_name: str) -> nx.DiGraph:
 
 
 def calculate_graph_score(graph: nx.DiGraph, feature_summary, graph_index_map):
-    # 计算Pagerank得分
     personalization = {node: feature_summary[graph_index_map[node]] for node in graph.nodes()}
     pagerank_scores = nx.pagerank(graph, alpha=0.85, personalization=personalization)
     return dict(sorted(pagerank_scores.items(), key=lambda item: item[1], reverse=True))

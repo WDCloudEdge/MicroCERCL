@@ -52,6 +52,7 @@ class Config:
 
         # anomaly threshold
         self.anomaly_threshold = 0.07
+        # loss threshold
         self.delta = 1e-5
         self.min_epoch = 10
         self.patience = 5

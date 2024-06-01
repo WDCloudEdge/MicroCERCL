@@ -53,7 +53,6 @@ class AggrHGraphConvWindow(nn.Module):
         super(AggrHGraphConvWindow, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
-        # self.window_simple_size = graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[1]
         if rnn == RnnType.LSTM:
             self.rnn_layer = nn.LSTM(input_size=self.hidden_size, hidden_size=self.output_size, num_layers=2,
                                      batch_first=True)
@@ -71,10 +70,6 @@ class AggrHGraphConvWindow(nn.Module):
             self.attention = nn.MultiheadAttention(self.hidden_size, num_heads)
         self.hGraph_conv_layer = AggrHGraphConvLayer(self.hidden_size, self.svc_feat_num, self.instance_feat_num,
                                                      self.node_feat_num)
-        # for i in range(self.window_simple_size):
-        #     self.hGraph_conv_layer_list.append(
-        #         AggrHGraphConvLayer(self.hidden_size, self.svc_feat_num, self.instance_feat_num,
-        #                             self.node_feat_num))
 
     def forward(self, graph: HeteroWithGraphIndex):
         input_data_list = []
@@ -99,42 +94,8 @@ class AggrHGraphConvWindow(nn.Module):
             }
             single_graph_time_series_feat = self.hGraph_conv_layer(graph, feat_dict)
             input_data_list.append(single_graph_time_series_feat.T)
-        # 时序attention，单个时间窗口内时序前者对所有时序后者的影响
-        if self.is_attention:
-            pass
-            # batch_sequence_list = []
-            # combinations_numbers = [list(combination) for combination in
-            #                         combinations(range(self.window_simple_size), self.num_heads)]
-            # for combination in combinations_numbers:
-            #     batch_sequence_list.append([input_data_list[idx] for idx in combination])
-            # for idx, batch_sequence in enumerate(batch_sequence_list):
-            #     # batch_sequence[1] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
-            #     input_data_list[combinations_numbers[idx][1]] = self.attention(batch_sequence[0].T, batch_sequence[0].T, batch_sequence[1].T)[0].T
-        # center_node_index: Dict[str, Set[str]] = {}
-        # graph_anomaly_node_index = {}
-        # for center in graph.center_type_index:
-        #     center_node_index[center] = graph.center_type_index[center][NodeType.NODE.value]
-        # graph_center_node_index = copy.deepcopy(center_node_index)
         node_num = len(graph.hetero_graph_index.index[NodeType.NODE.value])
         instance_num = len(graph.hetero_graph_index.index[NodeType.POD.value])
-
-        # def graph_anomaly_index(graph_anomaly_node_index, anomaly, anomaly_map, node_num, instance_num):
-        #     for node_type in anomaly_map:
-        #         graph_index_by_anomaly = graph_anomaly_node_index.get(anomaly, [])
-        #         if node_type == NodeType.NODE.value:
-        #             graph_index_by_anomaly.extend(node_index for node_index in anomaly_map[node_type])
-        #         elif node_type == NodeType.POD.value:
-        #             graph_index_by_anomaly.extend(pod_index + node_num for pod_index in anomaly_map[node_type])
-        #         elif node_type == NodeType.SVC.value:
-        #             graph_index_by_anomaly.extend(
-        #                 svc_index + node_num + instance_num for svc_index in anomaly_map[node_type])
-        #         graph_anomaly_node_index[anomaly] = graph_index_by_anomaly
-
-        # for anomaly in graph.anomaly_index:
-        #     graph_anomaly_index(graph_anomaly_node_index, anomaly, graph.anomaly_index[anomaly], node_num,
-        #                         instance_num)
-        # return self.rnn_layer(th.stack(input_data_list, dim=1).T)[
-        #     0], graphs_center_node_index, graphs_anomaly_node_index
         graph_time_series_feat = th.stack(input_data_list, dim=1).T
         hetero_graph_feat_dict = {NodeType.NODE.value: graph_time_series_feat[:node_num],
                                   NodeType.POD.value: graph_time_series_feat[node_num:node_num + instance_num],
@@ -178,7 +139,6 @@ class HeteroGlobalAttentionPooling(nn.Module):
             time_series_size = gate.shape[1]
             if get_attention:
                 attention_scores = torch.max(input=gate, dim=1)[0]
-                # return readout, index, time_series_size, self.activation(attention_scores.view(-1)).view(attention_scores.shape[0], attention_scores.shape[1])
                 return readout, index, time_series_size, attention_scores
             else:
                 return readout, index, time_series_size
@@ -195,7 +155,6 @@ class AggrHGraphConvWindows(nn.Module):
         elif rnn == RnnType.GRU:
             self.rnn_layer = nn.GRU(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=2,
                                     batch_first=True)
-        # 先尝试使用同一个图时序卷积网络对不同的衍化图作训练
         self.graph_window_conv = AggrHGraphConvWindow(64, self.hidden_size, svc_feat_num, instance_feat_num,
                                                       node_feat_num, 2, attention, rnn)
         self.linear = nn.Linear(self.hidden_size, 1)
@@ -210,8 +169,6 @@ class AggrHGraphConvWindows(nn.Module):
         window_graphs_index = []
         window_time_series_sizes = []
         window_anomaly_time_series = []
-        # node_num = [0] * len(self.time_metrics_layer_list)
-        # node_index = [0] * len(self.time_metrics_layer_list)
         times = graphs.keys()
         times_sorted = sorted(times)
         atten_sorted = []
@@ -219,16 +176,13 @@ class AggrHGraphConvWindows(nn.Module):
             graph = graphs[time]
             hetero_graph_feat_dict, single_graph_window_feat, graphs_center_node_name, graphs_anomaly_node_name = self.graph_window_conv(
                 graph)
-            # input_data_list.append(single_graph_window_feat)
-            # if single_graph_window_feat.shape[1] < shortest_time:
-            #     shortest_time = single_graph_window_feat.shape[1]
             output_feat, index, time_series_size, attention_scores = self.pooling(graph, hetero_graph_feat_dict, True)
             window_time_series_sizes.append(time_series_size)
             window_anomaly_time_series.append(graph.anomaly_time_series)
             output_data_list.append(output_feat)
             window_graphs_index.append(index)
             atten_sorted.append(attention_scores)
-            # 转换为当前图的索引
+            # convert to the index of the current graph
             graph_center_node_index = {}
             for center in graphs_center_node_name:
                 if center not in graph_center_node_index:
@@ -260,39 +214,10 @@ class AggrHGraphConvWindows(nn.Module):
                             graphs_anomaly_node_index[anomaly]['source'] = [index[graph_anomaly_node]]
             window_graphs_center_node_index.append(graph_center_node_index)
             window_graphs_anomaly_node_index.append(graphs_anomaly_node_index)
-            # if index > 0:
-            #     node_index[index] = single_window_feat.shape[0] + node_index[index - 1]
-            #     node_num[index] = node_index[index - 1]
-            # else:
-            #     node_num[index] = 0
-            #     node_index[index] = single_window_feat.shape[0]
-        # todo 默认取前shortest_time时序位，有可能丢失重要特征，可以使用时间窗口平滑
-        # for index, input_data in enumerate(input_data_list):
-        #     input_data_list[index] = input_data[:, :shortest_time, :]
-        # for index, center_index_map in enumerate(window_graphs_center_node_index):
-        #     append_index = node_num[index]
-        #     for center in center_index_map:
-        #         for idx, idx_origin in enumerate(center_index_map[center]):
-        #             center_index_map[center][idx] = idx_origin + append_index
-        # for index, anomaly_dict in enumerate(window_graphs_anomaly_node_index):
-        #     for anomaly in anomaly_dict:
-        #         anomaly_dict[anomaly] = [idx + node_num[index] for idx in anomaly_dict[anomaly]]
-        #     window_graphs_anomaly_node_index[index] = anomaly_dict
-        # window_graphs_anomaly_node_index_combine = {}
-        # for d in window_graphs_anomaly_node_index:
-        #     for ano, idx_list in d.items():
-        #         if ano in window_graphs_anomaly_node_index_combine:
-        #             window_graphs_anomaly_node_index_combine[ano].extend(idx_list)
-        #         else:
-        #             window_graphs_anomaly_node_index_combine[ano] = idx_list
-        # output = self.linear(self.rnn_layer(self.activation(th.cat(input_data_list, dim=0)))[0])
         output = self.activation(self.linear(self.rnn_layer(th.stack(output_data_list, dim=0))[0]))
-        # output = self.linear(self.rnn_layer(th.stack(output_data_list, dim=0))[0])
         output = output.reshape(output.shape[0], -1)
         return self.output_layer(torch.sum(output, dim=1,
                          keepdim=True)).T * th.stack(atten_sorted, dim=0), window_graphs_center_node_index, window_graphs_anomaly_node_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
-        # return torch.sum(output, dim=1, keepdim=True).T * th.stack(atten_sorted,
-        #                                                            dim=0), window_graphs_center_node_index, window_graphs_anomaly_node_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
 
 
 class AggrUnsupervisedGNN(nn.Module):
@@ -307,8 +232,6 @@ class AggrUnsupervisedGNN(nn.Module):
         self.precessor_neighbor_weight = nn.Parameter(th.ones(1, len(anomaly_index), requires_grad=True, device='cpu'))
         self.anomaly_index = anomaly_index
         self.criterion = nn.MSELoss()
-        # self.criterion = nn.L1Loss()
-        # self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):
         aggr_feat, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series = self.conv(
@@ -336,43 +259,25 @@ class AggrUnsupervisedGNN(nn.Module):
                 mean = torch.full_like(aggr_center, aggr_mean)
                 sum_criterion += self.criterion(aggr_center, mean)
 
-        # anomaly_aggr_index_combine_list = []
-        # for aggr_anomaly in aggr_anomaly_index:
-        #     aggr_index_combine = {}
-        #     for anomaly in aggr_anomaly:
-        #         for node_type in aggr_anomaly[anomaly]:
-        #             if anomaly not in aggr_index_combine:
-        #                 aggr_index_combine[anomaly] = aggr_anomaly[anomaly][node_type]
-        #             else:
-        #                 aggr_index_combine[anomaly].extend(aggr_anomaly[anomaly][node_type])
-        #     anomaly_aggr_index_combine_list.append(aggr_index_combine)
         for idx, anomaly_index_combine in enumerate(aggr_anomaly_index):
             aggr_feat_idx = aggr_feat[idx]
             for anomaly in anomaly_index_combine:
                 if len(anomaly_index_combine[anomaly]) > 0:
                     aggr_anomaly_nodes_index = anomaly_index_combine[anomaly]
-                    # aggr_anomaly_index = window_graphs_index[idx][anomaly[anomaly.find('-') + 1:]]
                     aggr_anomaly_time_series_index = window_anomaly_time_series[idx][anomaly[anomaly.find('-') + 1:]]
-                    # rate = 1 / len(aggr_anomaly_nodes_index) / len(aggr_anomaly_time_series_index)
-                    # rate = 1 / len(aggr_anomaly_nodes_index)
                     rate = 1
                     precessor_rate = 1 * self.precessor_neighbor_weight[0][self.anomaly_index[anomaly[anomaly.find('-') + 1:]]]
-                    # rate = aggr_feat_idx.max().item()
                     aggr_anomaly_time_series_index_map = {}
                     for time_series_index in aggr_anomaly_time_series_index:
                         count = aggr_anomaly_time_series_index_map.get(time_series_index, 0)
                         count += 1
                         aggr_anomaly_time_series_index_map[time_series_index] = count
-                    aggr_feat_label = torch.zeros_like(aggr_feat_idx)
-                    # aggr_feat_label = aggr_feat_idx.clone()
                     aggr_feat_label_weight = torch.zeros_like(aggr_feat_idx)
                     source_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['source']),
                                                         torch.tensor(aggr_anomaly_time_series_index))
                     rows, cols = source_index_matrix.shape
                     for i in range(rows):
                         element = source_index_matrix[i]
-                        # count = aggr_anomaly_time_series_index_map[element[1].item()]
-                        # aggr_feat_label_weight[element[0], element[1]] = count
                         aggr_feat_label_weight[element[0]] = rate
                     if 'neighbor' in aggr_anomaly_nodes_index:
                         neighbor_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['neighbor']),
@@ -380,12 +285,6 @@ class AggrUnsupervisedGNN(nn.Module):
                         rows, cols = neighbor_index_matrix.shape
                         for i in range(rows):
                             element = neighbor_index_matrix[i]
-                            # count = aggr_anomaly_time_series_index_map[element[1].item()]
-                            # aggr_feat_label_weight[element[0], element[1]] = count
                             aggr_feat_label_weight[element[0]] = precessor_rate
-                    # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = rate
-                    # aggr_feat_label[index_matrix[:, 0], index_matrix[:, 1]] = 0
-                    # sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label * aggr_feat_label_weight)
                     sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label_weight)
-                    # sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label)
         return sum_criterion
