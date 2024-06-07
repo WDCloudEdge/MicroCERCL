@@ -64,11 +64,11 @@ if __name__ == "__main__":
 
     top_k_services = []
     root_cause_services = []
-    root_cause_namespace_dir = 'data/abnormal/' + config.namespace
+    root_cause_namespace_dir = 'data/abnormal/' + config.dataset
     for item in os.listdir(root_cause_namespace_dir):
         if os.path.isdir(os.path.join(root_cause_namespace_dir, item)):
             root_cause_services.append(item)
-    base_output_dir = os.path.join('data/abnormal', config.namespace)
+    base_output_dir = os.path.join('data/abnormal', config.dataset)
     begin_tt = time.time()
     for root_cause_service in root_cause_services:
         top_k_service = []
