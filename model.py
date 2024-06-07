@@ -43,12 +43,10 @@ class EarlyStopping:
 # An Unsupervised Graph Neural Network Model Combining Failure Backpropagation and Topology Aggregation
 class UnsupervisedGNN(nn.Module):
     def __init__(self, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex],
-                 rnn: RnnType = RnnType.LSTM,
-                 attention: bool = False):
+                 rnn: RnnType = RnnType.LSTM):
         super(UnsupervisedGNN, self).__init__()
         graph = graphs[next(iter(graphs))]
         self.aggr_conv = AggrUnsupervisedGNN(anomaly_index, out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
-                                             attention=attention,
                                              svc_feat_num=
                                              graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
                                              node_feat_num=
@@ -81,14 +79,13 @@ class UnsupervisedGNN(nn.Module):
 def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex],
           dir: str = '',
           is_train: TrainType = TrainType.EVAL,
-          learning_rate=0.01, rnn: RnnType = RnnType.LSTM, attention: bool = False):
-    model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn, attention=attention)
+          learning_rate=0.01, rnn: RnnType = RnnType.LSTM):
+    model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn)
     if torch.cuda.is_available():
         model = model.to('cpu')
     label = label
     root_cause_file = label + '_' + rnn.value
-    model_file = 'model_weights' + '_' + label + '_' + rnn.value + (
-        '_atten' if attention else '') + '.pth'
+    model_file = 'model_weights' + '_' + label + '_' + rnn.value + '.pth'
     root_cause = root_cause
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)

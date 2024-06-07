@@ -19,7 +19,6 @@ class Config:
         self.train = TrainType.TRAIN
         self.collect = False
         self.rnn_type = RnnType.LSTM
-        self.attention = False
         self.namespace = ''
         self.dataset = 'sock_shop_chaos'
         self.nodes = None

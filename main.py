@@ -214,8 +214,7 @@ if __name__ == "__main__":
                                                                                 graphs_anomaly_time_series_index,
                                                                                 graphs_anomaly_time_series_index_map
                                                                                 , graphs_index_time_map)
-                top_k = train(config, simple.label, simple.root_cause, anomaly_index, hetero_graphs_combine, base_output_dir, config.train, rnn=config.rnn_type,
-                              attention=config.attention)
+                top_k = train(config, simple.label, simple.root_cause, anomaly_index, hetero_graphs_combine, base_output_dir, config.train, rnn=config.rnn_type)
                 top_k_service.append(top_k)
                 top_k_services.append(top_k)
         print_pr(top_k_service, os.path.join(base_output_dir, root_cause_service + '-topk.txt'))

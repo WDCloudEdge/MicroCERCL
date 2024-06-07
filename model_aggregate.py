@@ -48,8 +48,7 @@ class AggrHGraphConvLayer(nn.Module):
 
 
 class AggrHGraphConvWindow(nn.Module):
-    def __init__(self, hidden_size, output_size, svc_feat_num, instance_feat_num, node_feat_num, num_heads: int = 2,
-                 is_attention: bool = False, rnn: RnnType = RnnType.LSTM):
+    def __init__(self, hidden_size, output_size, svc_feat_num, instance_feat_num, node_feat_num, num_heads: int = 2, rnn: RnnType = RnnType.LSTM):
         super(AggrHGraphConvWindow, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -63,11 +62,7 @@ class AggrHGraphConvWindow(nn.Module):
         self.svc_feat_num = svc_feat_num
         self.instance_feat_num = instance_feat_num
         self.node_feat_num = node_feat_num
-        self.is_attention = is_attention
         self.activation = nn.ReLU()
-        if is_attention:
-            self.num_heads = num_heads
-            self.attention = nn.MultiheadAttention(self.hidden_size, num_heads)
         self.hGraph_conv_layer = AggrHGraphConvLayer(self.hidden_size, self.svc_feat_num, self.instance_feat_num,
                                                      self.node_feat_num)
 
@@ -146,7 +141,7 @@ class HeteroGlobalAttentionPooling(nn.Module):
 
 class AggrHGraphConvWindows(nn.Module):
     def __init__(self, out_channel, hidden_channel, svc_feat_num, instance_feat_num, node_feat_num,
-                 rnn: RnnType = RnnType.LSTM, attention: bool = False):
+                 rnn: RnnType = RnnType.LSTM):
         super(AggrHGraphConvWindows, self).__init__()
         self.hidden_size = hidden_channel
         if rnn == RnnType.LSTM:
@@ -156,7 +151,7 @@ class AggrHGraphConvWindows(nn.Module):
             self.rnn_layer = nn.GRU(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=2,
                                     batch_first=True)
         self.graph_window_conv = AggrHGraphConvWindow(64, self.hidden_size, svc_feat_num, instance_feat_num,
-                                                      node_feat_num, 2, attention, rnn)
+                                                      node_feat_num, 2, rnn)
         self.linear = nn.Linear(self.hidden_size, 1)
         self.output_layer = nn.Softmax(dim=0)
         self.activation = nn.ReLU()
@@ -222,13 +217,11 @@ class AggrHGraphConvWindows(nn.Module):
 
 class AggrUnsupervisedGNN(nn.Module):
     def __init__(self, anomaly_index, out_channels, hidden_size, svc_feat_num, instance_feat_num, node_feat_num,
-                 rnn: RnnType = RnnType.LSTM,
-                 attention: bool = False):
+                 rnn: RnnType = RnnType.LSTM):
         super(AggrUnsupervisedGNN, self).__init__()
         self.conv = AggrHGraphConvWindows(out_channel=out_channels, hidden_channel=hidden_size,
                                           svc_feat_num=svc_feat_num, instance_feat_num=instance_feat_num,
-                                          node_feat_num=node_feat_num, rnn=rnn,
-                                          attention=attention)
+                                          node_feat_num=node_feat_num, rnn=rnn)
         self.precessor_neighbor_weight = nn.Parameter(th.ones(1, len(anomaly_index), requires_grad=True, device='cpu'))
         self.anomaly_index = anomaly_index
         self.criterion = nn.MSELoss()
