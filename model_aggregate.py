@@ -100,7 +100,7 @@ class AggrHGraphConvWindow(nn.Module):
         hetero_graph_feat_dict = {NodeType.NODE.value: graph_time_series_feat[:node_num],
                                   NodeType.POD.value: graph_time_series_feat[node_num:node_num + instance_num],
                                   NodeType.SVC.value: graph_time_series_feat[node_num + instance_num:]}
-        return hetero_graph_feat_dict, self.activation(graph_time_series_feat), graph.center_type_name, graph.anomaly_name
+        return hetero_graph_feat_dict, self.activation(self.rnn_layer(graph_time_series_feat)[0]), graph.center_type_name, graph.anomaly_name
 
 
 class HeteroGlobalAttentionPooling(nn.Module):
