@@ -211,8 +211,8 @@ class AggrHGraphConvWindows(nn.Module):
             window_graphs_anomaly_node_index.append(graphs_anomaly_node_index)
         output = self.activation(self.linear(self.rnn_layer(th.stack(output_data_list, dim=0))[0]))
         output = output.reshape(output.shape[0], -1)
-        return self.output_layer(torch.sum(output, dim=1,
-                         keepdim=True)).T * th.stack(atten_sorted, dim=0), window_graphs_center_node_index, window_graphs_anomaly_node_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
+        graphs_probability = self.output_layer(torch.sum(output, dim=1, keepdim=True))
+        return [graphs_probability[g_index] * atten_sorted[g_index] for g_index in range(len(atten_sorted))], window_graphs_center_node_index, window_graphs_anomaly_node_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series
 
 
 class AggrUnsupervisedGNN(nn.Module):
@@ -257,27 +257,13 @@ class AggrUnsupervisedGNN(nn.Module):
             for anomaly in anomaly_index_combine:
                 if len(anomaly_index_combine[anomaly]) > 0:
                     aggr_anomaly_nodes_index = anomaly_index_combine[anomaly]
-                    aggr_anomaly_time_series_index = window_anomaly_time_series[idx][anomaly[anomaly.find('-') + 1:]]
                     rate = 1
                     precessor_rate = 1 * self.precessor_neighbor_weight[0][self.anomaly_index[anomaly[anomaly.find('-') + 1:]]]
-                    aggr_anomaly_time_series_index_map = {}
-                    for time_series_index in aggr_anomaly_time_series_index:
-                        count = aggr_anomaly_time_series_index_map.get(time_series_index, 0)
-                        count += 1
-                        aggr_anomaly_time_series_index_map[time_series_index] = count
                     aggr_feat_label_weight = torch.zeros_like(aggr_feat_idx)
-                    source_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['source']),
-                                                        torch.tensor(aggr_anomaly_time_series_index))
-                    rows, cols = source_index_matrix.shape
-                    for i in range(rows):
-                        element = source_index_matrix[i]
-                        aggr_feat_label_weight[element[0]] = rate
+                    source_index_matrix = torch.tensor(aggr_anomaly_nodes_index['source'])
+                    aggr_feat_label_weight[source_index_matrix] = rate
                     if 'neighbor' in aggr_anomaly_nodes_index:
-                        neighbor_index_matrix = torch.cartesian_prod(torch.tensor(aggr_anomaly_nodes_index['neighbor']),
-                                                                   torch.tensor(aggr_anomaly_time_series_index))
-                        rows, cols = neighbor_index_matrix.shape
-                        for i in range(rows):
-                            element = neighbor_index_matrix[i]
-                            aggr_feat_label_weight[element[0]] = precessor_rate
+                        neighbor_index_matrix = torch.tensor(aggr_anomaly_nodes_index['neighbor'])
+                        aggr_feat_label_weight[neighbor_index_matrix] = precessor_rate
                     sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label_weight)
         return sum_criterion

@@ -16,14 +16,15 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
     svc_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     pod_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     path = os.path.join(_dir, 'graph.csv')
-    k8s_nodes = [Node('izbp193ioajdcnpofhlr1hz', '172.26.146.178', 'izbp193ioajdcnpofhlr1hz', '10.244.0.0/24', 'Ready', 'cloud'),
-                 Node('izbp16opgy3xucvexwqp9dz', '172.23.182.14', 'izbp16opgy3xucvexwqp9dz', '', 'Ready', 'cloud'),
-                 Node('izbp1gwb52uyj3g0wn52lez', '172.26.146.180', 'izbp1gwb52uyj3g0wn52lez', '10.244.5.0/24', 'Ready', 'cloud'),
-                 Node('izbp1gwb52uyj3g0wn52lfz', '172.26.146.179', 'izbp1gwb52uyj3g0wn52lfz', '10.244.6.0/24', 'Ready', 'cloud'),
-                 Node('server-1', '192.168.31.74', 'server-1', '10.244.8.0/24', 'Ready', 'edge-1'),
-                 Node('server-2', '192.168.31.85', 'server-2', '10.244.12.0/24', 'Ready', 'edge-1'),
-                 Node('server-3', '192.168.31.128', 'server-3', '10.244.9.0/24', 'Ready', 'edge-2'),
-                 Node('dell2018', '192.168.31.208', 'dell2018', '10.244.11.0/24', 'Ready', 'edge-2')]
+    k8s_nodes = [
+        Node('izbp193ioajdcnpofhlr1hz', '172.26.146.178', 'izbp193ioajdcnpofhlr1hz', '10.244.0.0/24', 'Ready', 'cloud'),
+        Node('izbp16opgy3xucvexwqp9dz', '172.23.182.14', 'izbp16opgy3xucvexwqp9dz', '', 'Ready', 'cloud'),
+        Node('izbp1gwb52uyj3g0wn52lez', '172.26.146.180', 'izbp1gwb52uyj3g0wn52lez', '10.244.5.0/24', 'Ready', 'cloud'),
+        Node('izbp1gwb52uyj3g0wn52lfz', '172.26.146.179', 'izbp1gwb52uyj3g0wn52lfz', '10.244.6.0/24', 'Ready', 'cloud'),
+        Node('server-1', '192.168.31.74', 'server-1', '10.244.8.0/24', 'Ready', 'edge-1'),
+        Node('server-2', '192.168.31.85', 'server-2', '10.244.12.0/24', 'Ready', 'edge-1'),
+        Node('server-3', '192.168.31.128', 'server-3', '10.244.9.0/24', 'Ready', 'edge-2'),
+        Node('dell2018', '192.168.31.208', 'dell2018', '10.244.11.0/24', 'Ready', 'edge-2')]
     if collect:
         prom_util = PrometheusClient(config)
         prom_sql = 'sum(istio_tcp_received_bytes_total{destination_workload_namespace=\"%s\"}) by (source_workload, destination_workload)' % config.namespace
@@ -102,7 +103,6 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
 
     combine_timestamp = pod_timestamp_map.copy()
     combine_timestamp.update(svc_timestamp_map.copy())
-    k8s_client = KubernetesClient(config)
     node_center: Dict[str, str] = {'izbp16opgy3xucvexwqp9dz': 'cloud',
                                    'izbp193ioajdcnpofhlr1hz': 'cloud',
                                    'izbp1gwb52uyj3g0wn52lez': 'cloud',
@@ -334,7 +334,7 @@ def collect_svc_metric(config: Config, _dir: str):
     final_df.to_csv(path, index=False, mode='a')
 
 
-# 收集容器CPU, memory, network
+# Collect CPU, memory, network from containers
 def collect_ctn_metric(config: Config, _dir: str):
     pod_df = pd.DataFrame()
     prom_util = PrometheusClient(config)
@@ -578,7 +578,7 @@ def collect(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
         collect_succeess_rate(config, _dir)
         collect_svc_qps(config, _dir)
         collect_svc_metric(config, _dir)
-        collect_pod_num(config, _dir)
+        collect_pod_num(config, _dir, collect)
         collect_ctn_metric(config, _dir)
     return graphs
 
@@ -605,16 +605,20 @@ def collect_graph_single(config: Config, _dir: str):
     collect_graph(config, _dir, True)
 
 
-def collect_and_build_graphs(config: Config, _dir: str, topology_change_time_window_list, window_size, coll: bool) -> \
-        Dict[
-            str, nx.DiGraph]:
+def collect_and_build_graphs_change_time_ns(config: Config, _dir: str, coll: bool) -> (Dict[str, nx.DiGraph], []):
     print('collect graphs')
     if not os.path.exists(_dir):
         os.makedirs(_dir)
     graphs: Dict[str, nx.DiGraph] = collect(config, _dir, coll)
-    graphs_time_window = combine_timestamps_graph(graphs, config.namespace, topology_change_time_window_list,
-                                                  window_size)
-    return graphs_time_window
+    graph_change_times = []
+    graph_node_count = 0
+    for graph_key in graphs:
+        if config.start <= int(graph_key) <= config.end:
+            current_node_count = graphs[graph_key].number_of_nodes()
+            if current_node_count != graph_node_count:
+                graph_change_times.append(graph_key)
+                graph_node_count = current_node_count
+    return graphs, graph_change_times
 
 
 def collect_pod_num_and_build_graph_change_windows(config: Config, _dir: str, coll: bool) -> List[

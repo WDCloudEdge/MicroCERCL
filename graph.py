@@ -88,8 +88,20 @@ def combine_graph(graphs: [nx.DiGraph]) -> nx.DiGraph:
     return g
 
 
-def combine_timestamps_graph(graphs_at_timestamp: Dict[str, nx.DiGraph], namespace, topology_change_time_window_list,
-                             window_size=600) -> \
+def combine_timestamps_graph(graphs_at_timestamp: Dict[str, nx.DiGraph], namespace, begin, end) -> \
+        Dict[str, nx.DiGraph]:
+    combine_graphs: Dict[str, nx.DiGraph] = {}
+    combine = []
+    for timestamp in graphs_at_timestamp:
+        time = int(timestamp)
+        if begin <= time < end:
+            combine.append(graphs_at_timestamp[timestamp])
+    key = str(begin) + '-' + str(end) + '-' + namespace
+    combine_graphs[key] = combine_graph(combine)
+    return combine_graphs
+
+
+def collect_topology_change_time_list(graphs_at_timestamp: Dict[str, nx.DiGraph], namespace) -> \
         Dict[str, nx.DiGraph]:
     combine_graphs: Dict[str, nx.DiGraph] = {}
     for i in range(len(topology_change_time_window_list) - 1):
@@ -215,14 +227,14 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
            anomaly_time_series: Dict[str, Dict[str, List[int]]],
            graphs_index_time_map: Dict[str, Dict[int, str]]) -> Dict[str, HeteroWithGraphIndex]:
     hg_dict: Dict[str, HeteroWithGraphIndex] = {}
-    for time_window in graphs:
+    for time_change_window in graphs:
         hg_data_dict = defaultdict(lambda: ([], []))
         center_index: Dict[str, Dict[str, List[int]]] = {}
         center_name: Dict[str, Dict[str, List[str]]] = {}
-        graph = graphs[time_window]
-        index = graphs_index[time_window]
-        graph_anomaly_time_series_index = graphs_anomaly_time_series_index[time_window]
-        anomaly_node = get_anomaly_time_window(anomaly_nodes, time_window)
+        graph = graphs[time_change_window]
+        index = graphs_index[time_change_window]
+        graph_anomaly_time_series_index = graphs_anomaly_time_series_index[time_change_window]
+        anomaly_node = get_anomaly_time_window(anomaly_nodes, time_change_window)
 
         class NodeIndex:
             def __init__(self, name, index):
@@ -302,9 +314,9 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
             center_type_list = center_index[center]
             center_subgraph[center] = _hg.subgraph({tp: list(center_type_list[tp]) for tp in center_type_list})
         hg = HeteroWithGraphIndex(_hg, index, graph, center_subgraph, center_index, center_name, anomaly_index,
-                                  anomaly_type_name, graph_anomaly_time_series_index, anomaly_time_series[time_window],
-                                  graphs_index_time_map[time_window])
-        hg_dict[time_window] = hg
+                                  anomaly_type_name, graph_anomaly_time_series_index, anomaly_time_series[time_change_window],
+                                  graphs_index_time_map[time_change_window])
+        hg_dict[time_change_window] = hg
     return hg_dict
 
 
@@ -368,8 +380,7 @@ def get_anomaly_time_window(anomalies, graph_time_window):
     return None
 
 
-def graph_dump(graph: nx.Graph, base_dir: str, dump_file):
-    # graph dump
+def graph_prune(graph: nx.Graph, base_dir: str, dump_file):
     graph_copy = graph.copy()
     anomaly_nodes = []
     for node, data in graph_copy.nodes(data=True):
