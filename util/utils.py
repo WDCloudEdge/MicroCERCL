@@ -67,7 +67,7 @@ def df_time_limit(df, begin_timestamp, end_timestamp):
             break
     for index, row in df.iterrows():
         if index > begin_index and time_string_2_timestamp(row['timestamp']) >= int(end_timestamp):
-            end_index = index
+            end_index = index - 1
             break
     if max_timestamp < int(end_timestamp):
         end_index = df.shape[0] - 1

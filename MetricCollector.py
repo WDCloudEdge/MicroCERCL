@@ -6,8 +6,7 @@ from util.PrometheusClient import PrometheusClient
 from util.KubernetesClient import KubernetesClient
 import networkx as nx
 from typing import Dict, List, Tuple
-from graph import combine_timestamps_graph, NodeType, graph_load
-import random
+from graph import NodeType, graph_load
 
 
 def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:

@@ -94,7 +94,7 @@ def combine_timestamps_graph(graphs_at_timestamp: Dict[str, nx.DiGraph], namespa
     combine = []
     for timestamp in graphs_at_timestamp:
         time = int(timestamp)
-        if begin <= time < end:
+        if begin <= time <= end:
             combine.append(graphs_at_timestamp[timestamp])
     key = str(begin) + '-' + str(end) + '-' + namespace
     combine_graphs[key] = combine_graph(combine)

@@ -135,7 +135,7 @@ if __name__ == "__main__":
             for i in range(len(topology_change_time_window_list)):
                 if i != len(topology_change_time_window_list) - 1:
                     time_change_begin = topology_change_time_window_list[i]
-                    time_change_end = topology_change_time_window_list[i + 1]
+                    time_change_end = topology_change_time_window_list[i + 1] - 1
                     graph_time_key = str(time_change_begin) + '-' + str(time_change_end)
                     topology_change_time_window_pair_list.append(graph_time_key)
                     for ns in namespaces:
