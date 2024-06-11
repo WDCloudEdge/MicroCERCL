@@ -48,7 +48,7 @@ class AggrHGraphConvLayer(nn.Module):
 
 
 class AggrHGraphConvWindow(nn.Module):
-    def __init__(self, hidden_size, output_size, svc_feat_num, instance_feat_num, node_feat_num, num_heads: int = 2, rnn: RnnType = RnnType.LSTM):
+    def __init__(self, hidden_size, output_size, svc_feat_num, instance_feat_num, node_feat_num, rnn: RnnType = RnnType.LSTM):
         super(AggrHGraphConvWindow, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -151,7 +151,7 @@ class AggrHGraphConvWindows(nn.Module):
             self.rnn_layer = nn.GRU(input_size=self.hidden_size, hidden_size=self.hidden_size, num_layers=2,
                                     batch_first=True)
         self.graph_window_conv = AggrHGraphConvWindow(64, self.hidden_size, svc_feat_num, instance_feat_num,
-                                                      node_feat_num, 2, rnn)
+                                                      node_feat_num, rnn)
         self.linear = nn.Linear(self.hidden_size, 1)
         self.output_layer = nn.Softmax(dim=0)
         self.activation = nn.ReLU()
