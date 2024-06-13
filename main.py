@@ -37,7 +37,6 @@ if __name__ == "__main__":
         try:
             with open(file_path, 'r') as f:
                 lines = f.readlines()
-                # 如果文件为空则跳过
                 if not lines:
                     return simple_list
                 for line in lines:
@@ -104,10 +103,6 @@ if __name__ == "__main__":
                 time_pair_index[(config.start, config.end)] = df_time_index
             # Get a window of time when the topology has changed
             topology_change_time_window_list = []
-            # for ns in namespaces:
-            #     config.namespace = ns
-            #     time_change_ns = [timestamp_2_time_string(global_now_time), timestamp_2_time_string(global_end_time)]
-            #     topology_change_time_window_list.extend(time_change_ns)
             graphs_time_window_ns_all: Dict[str, Dict[str, nx.DiGraph]] = {}
             for time_pair in time_pair_list:
                 config.start = time_pair[0]
@@ -118,9 +113,6 @@ if __name__ == "__main__":
                     config.pods.clear()
                     count = 1
                     data_folder = base_dir + '/' + config.namespace + '/metrics'
-                    # for time_pair in time_pair_list:
-                    #     config.start = time_pair[0]
-                    #     config.end = time_pair[1]
                     print('Process data from ' +  config.namespace + ' microservice system for ' + str(count) + 'th time')
                     graphs_time_window_ns, graph_change_times_ns = MetricCollector.collect_and_build_graphs_change_time_ns(config, data_folder, config.collect)
                     if ns not in graphs_time_window_ns_all:
