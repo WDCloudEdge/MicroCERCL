@@ -52,7 +52,7 @@ class HeteroWithGraphIndex:
     def __init__(self, hetero_graph: DGLHeteroGraph, hetero_graph_index: GraphIndex, n_graph: nx.DiGraph,
                  center_hetero_graph: Dict[str, DGLHeteroGraph], center_type_index, center_type_name,
                  anomaly_index, anomaly_name, anomaly_time_series_index, anomaly_time_series,
-                 graph_index_time_map):
+                 graph_index_time_map, node_exist):
         self.hetero_graph = hetero_graph
         self.hetero_graph_index = hetero_graph_index
         self.n_graph = n_graph
@@ -64,6 +64,7 @@ class HeteroWithGraphIndex:
         self.anomaly_time_series_index = anomaly_time_series_index
         self.anomaly_time_series = anomaly_time_series
         self.graph_index_time_map = graph_index_time_map
+        self.node_exist = node_exist
 
 
 def combine_graph(graphs: [nx.DiGraph]) -> nx.DiGraph:
@@ -244,6 +245,30 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
         type_map: Dict[str, Set[NodeIndex]] = {}
         node_exist: Set = set([])
         anomaly_index, anomaly_type_name = get_anomaly_index(index, anomaly_node, graph)
+        graph_nodes = list(graph.nodes)
+        for u, v in graph.edges:
+            node_exist.add(u)
+            node_exist.add(v)
+        for n in node_exist:
+            graph_nodes.remove(n)
+        node_not_exist = graph_nodes
+        for nn in node_not_exist:
+            if nn in index.node_index:
+                n_type = NodeType.NODE
+                nn_index = index.node_index[nn]
+                del index.node_index[nn]
+            elif nn in index.svc_index:
+                n_type = NodeType.SVC
+                nn_index = index.svc_index[nn]
+                del index.svc_index[nn]
+            elif nn in index.pod_index:
+                n_type = NodeType.POD
+                nn_index = index.pod_index[nn]
+                del index.pod_index[nn]
+            for ii, ni in enumerate(index.index[n_type.value]):
+                if index.index[n_type.value][ni] > nn_index:
+                    index.index[n_type.value][ni] -= 1
+        node_exist = set([])
         for u, v, data in graph.edges(data=True):
             u_type = graph.nodes[u]['type']
             v_type = graph.nodes[v]['type']
@@ -285,6 +310,7 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                 type_list.append(NodeIndex(v, index.index[v_type][v]))
                 node_exist.add(v)
             type_map[v_type] = type_list
+
         _hg: DGLHeteroGraph = heterograph(
             {
                 key: (th.tensor(src_list), th.tensor(dst_list))
@@ -296,6 +322,8 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
         for type in type_map:
             type_list = type_map[type]
             for node_index in type_list:
+                if node_index.name in node_not_exist:
+                    continue
                 if 'feat' not in _hg.nodes[type].data:
                     feat_zeros = th.zeros((_hg.number_of_nodes(type), graph.nodes[node_index.name]['data'].shape[0],
                                            graph.nodes[node_index.name]['data'].shape[1]), dtype=th.float32)
@@ -315,7 +343,7 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
             center_subgraph[center] = _hg.subgraph({tp: list(center_type_list[tp]) for tp in center_type_list})
         hg = HeteroWithGraphIndex(_hg, index, graph, center_subgraph, center_index, center_name, anomaly_index,
                                   anomaly_type_name, graph_anomaly_time_series_index, anomaly_time_series[time_change_window],
-                                  graphs_index_time_map[time_change_window])
+                                  graphs_index_time_map[time_change_window], node_exist)
         hg_dict[time_change_window] = hg
     return hg_dict
 

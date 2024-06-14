@@ -191,6 +191,9 @@ class AggrHGraphConvWindows(nn.Module):
                         graph_center_node_index[center][node_type].append(index[graph_center_node])
             graphs_anomaly_node_index = {}
             for anomaly in graphs_anomaly_node_name:
+                anomaly_n = anomaly[anomaly.find('-') + 1:]
+                if anomaly_n not in graph.node_exist:
+                    continue
                 if anomaly not in graphs_anomaly_node_index:
                     graphs_anomaly_node_index[anomaly] = {}
                 graph_anomaly_node_name = graphs_anomaly_node_name[anomaly]
