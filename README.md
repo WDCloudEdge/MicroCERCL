@@ -1,5 +1,7 @@
 # MicroCERCL
 
+[中文文档](README_zh.md)
+
 ## Description
 
 **MicroCERCL** extracts valid contents from kernel-level logs to prioritize localizing the kernel-level root cause. Moreover, **MicroCERCL** constructs a heterogeneous dynamic topology stack and train a graph neural network model to accurately localize the application-level root cause without relying on historical data.
@@ -99,3 +101,7 @@ McroCERCL/
 │└── │├── PrometheusClient.py
 │└── │└── utils.py
 ```
+
+## License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
