@@ -34,7 +34,25 @@ python3.7 ./main.py
 
 ## Dataset
 
+### Download
+
 [Dropbox](https://www.dropbox.com/scl/fi/s6gugabhlfd4ar46vu3nf/abnormal.zip?rlkey=iztl9kqkorakqt6dxocmlv3k7&st=jsbbcozk&dl=0)
+
+### Description
+
+It contains three folders corresponding to Bookinfo, Hipster, and SockShop, where the root cause is located within a hybrid deployment scenario. Each folder is further split into secondary folders based on the root cause of the microservice (or its instances). Each root cause service folder contains label information (xxx_label.txt) for all failures injected. Within each service, it is split into third-level folders according to the label file to form a failure sample. Each failure sample contains all hybrid-deployed microservice systems that form the fourth-level folders. Each hybrid-deployed microservice system folder contains three types of monitoring data: metrics, traces, and logs. (Bookinfo without logs in each failure sample)
+
+### Failure Sample
+
+### Details
+
+#### Metrics
+
+
+
+#### Traces
+
+#### Logs
 
 ## Project Structure
 
@@ -55,5 +73,4 @@ McroCERCL/
 │└── │├── KubernetesClient.py
 │└── │├── PrometheusClient.py
 │└── │└── utils.py
-
 ```
