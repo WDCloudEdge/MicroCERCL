@@ -75,6 +75,18 @@ As shown in figure:
 
 <img width="217" alt="image" src="https://github.com/WDCloudEdge/MicroCERCL/assets/48899336/6ab3177b-3502-413c-b77f-4251387a3d20">
 
+| File                  | Description                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| abnormal.pkl          | Records data with missing structure, abnormal status code and error messages, excluding data with abnormal net latency. |
+| abnormal_half.pkl     | For the namespace where the file is located, records data after eliminating other namespace service information from the Trace data based on *abnormal.pkl* (only this namespace service information is included) |
+| inbound.pkl           | For the namespace where the file is located, record data containing service calls from other namespaces to this namespace. |
+| inbound_half.pkl      | For the namespace where the file is located, records data after eliminating other namespace service information from the Trace data based on *inbound.pkl* (only this namespace service information is included) |
+| normal.pkl            | Records data with complete structure and normal status code, including data with abnormal net latency. |
+| outbound.pkl          | For the namespace where the file is located, record data containing service calls from this namespace to other namespaces. |
+| outbound_half.pkl     | For the namespace where the file is located, records data after eliminating other namespace service information from the Trace data based on *outbound.pkl* (only this namespace service information is included) |
+| trace_net_latency.pkl | Statistics on request latency data and response latency data between a pair of service calls |
+| trace_pod_latency.pkl | Statistics on latency data between sending a request and receiving a response between a pair of service calls. |
+
 #### Logs
 
 Each instance (container) has a .pkl file, containing all business logs of the container.
