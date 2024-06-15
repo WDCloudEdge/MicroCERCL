@@ -36,7 +36,7 @@ python3.7 ./main.py
 
 ### 下载链接
 
-[Dropbox](https://www.dropbox.com/scl/fi/rid1ik9hzu2rldeyua6ow/abnormal_20240614.zip?rlkey=lg4piwumnwgp9iv2vkhucs870&st=loge6mq9&dl=0)
+[Dropbox](https://www.dropbox.com/scl/fi/lw4xlw9b2rlhaa1ds0bju/abnormal_20240615.zip?rlkey=yuomecjids9qa54029755bjzo&st=qsrs7wfc&dl=0)
 
 ### 数据集描述
 
