@@ -83,7 +83,6 @@ def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], gr
     model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn)
     if torch.cuda.is_available():
         model = model.to('cpu')
-    label = label
     root_cause_file = label + '_' + rnn.value
     model_file = 'model_weights' + '_' + label + '_' + rnn.value + '.pth'
     root_cause = root_cause

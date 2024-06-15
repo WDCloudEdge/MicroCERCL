@@ -67,7 +67,7 @@ def df_time_limit(df, begin_timestamp, end_timestamp):
             break
     for index, row in df.iterrows():
         if index > begin_index and time_string_2_timestamp(row['timestamp']) >= int(end_timestamp):
-            end_index = index
+            end_index = index - 1
             break
     if max_timestamp < int(end_timestamp):
         end_index = df.shape[0] - 1
@@ -89,7 +89,7 @@ def top_k_node(sorted_dict_node, root_cause, output_file):
         if not is_top_k:
             top_k += 1
         print(f"{key}: {value}", file=output_file)
-        if ('edge' in root_cause and 'edge' in key and key in root_cause) or ('edge' not in root_cause and 'edge' not in key and key in root_cause):
+        if ('edge' in root_cause and 'edge' in key and key in root_cause) or ('edge' not in root_cause and 'edge' not in key and (key in root_cause or root_cause in key)):
             is_top_k = True
     print(f"top_k: {top_k}", file=output_file)
     print(f"root_cause: {root_cause}, top_k: {top_k}")
