@@ -42,11 +42,11 @@ class EarlyStopping:
 
 # An Unsupervised Graph Neural Network Model Combining Failure Backpropagation and Topology Aggregation
 class UnsupervisedGNN(nn.Module):
-    def __init__(self, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex],
+    def __init__(self, center_map, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex],
                  rnn: RnnType = RnnType.LSTM):
         super(UnsupervisedGNN, self).__init__()
         graph = graphs[next(iter(graphs))]
-        self.aggr_conv = AggrUnsupervisedGNN(anomaly_index, out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
+        self.aggr_conv = AggrUnsupervisedGNN(center_map, anomaly_index, out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
                                              svc_feat_num=
                                              graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
                                              node_feat_num=
@@ -76,11 +76,11 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex],
+def train(config, label: str, root_cause: str, center_map: Dict[str, int], anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex],
           dir: str = '',
           is_train: TrainType = TrainType.EVAL,
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM):
-    model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn)
+    model = UnsupervisedGNN(center_map, anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn)
     if torch.cuda.is_available():
         model = model.to('cpu')
     root_cause_file = label + '_' + rnn.value

@@ -17,6 +17,7 @@ if __name__ == "__main__":
     namespaces = ['bookinfo', 'hipster', 'cloud-sock-shop', 'horsecoder-test']
     config = Config()
 
+
     class Simple:
         def __init__(self, global_now_time, global_end_time, label, root_cause, dir):
             self.global_now_time = global_now_time
@@ -24,6 +25,7 @@ if __name__ == "__main__":
             self.label = label
             self.root_cause = root_cause
             self.dir = dir
+
 
     def read_label_logs(namespace_path, label_service, simple_list: [Simple], minute):
         label_file_folder = os.path.join(namespace_path, label_service)
@@ -45,7 +47,8 @@ if __name__ == "__main__":
                         label_line_label = label_line.split('_')[1] + '_' + label_line.split('_')[3]
                         for dr in dirs:
                             dr_splits = dr.split('_')
-                            if label_line_label == (dr_splits[len(dr_splits) - 2] + '_' + dr_splits[len(dr_splits) - 1]):
+                            if label_line_label == (
+                                    dr_splits[len(dr_splits) - 2] + '_' + dr_splits[len(dr_splits) - 1]):
                                 root_cause = dr[dr.rfind(label_service):dr.rfind(label_line_label) - 1]
                                 dd = dr
                         if root_cause is None:
@@ -60,6 +63,7 @@ if __name__ == "__main__":
                         simple_list.append(simple)
         except Exception as e:
             print(f"Error reading file {file_path}: {e}")
+
 
     top_k_services = []
     root_cause_services = []
@@ -113,8 +117,10 @@ if __name__ == "__main__":
                     config.pods.clear()
                     count = 1
                     data_folder = base_dir + '/' + config.namespace + '/metrics'
-                    print('Process data from ' +  config.namespace + ' microservice system for ' + str(count) + 'th time')
-                    graphs_time_window_ns, graph_change_times_ns = MetricCollector.collect_and_build_graphs_change_time_ns(config, data_folder, config.collect)
+                    print(
+                        'Process data from ' + config.namespace + ' microservice system for ' + str(count) + 'th time')
+                    graphs_time_window_ns, graph_change_times_ns = MetricCollector.collect_and_build_graphs_change_time_ns(
+                        config, data_folder, config.collect)
                     if ns not in graphs_time_window_ns_all:
                         graphs_time_window_ns_all[ns] = {}
                     graphs_time_window_ns_all[ns].update(graphs_time_window_ns)
@@ -131,7 +137,8 @@ if __name__ == "__main__":
                     graph_time_key = str(time_change_begin) + '-' + str(time_change_end)
                     topology_change_time_window_pair_list.append(graph_time_key)
                     for ns in namespaces:
-                        graphs_ns_time_window = combine_timestamps_graph(graphs_time_window_ns_all[ns], ns, time_change_begin, time_change_end)
+                        graphs_ns_time_window = combine_timestamps_graph(graphs_time_window_ns_all[ns], ns,
+                                                                         time_change_begin, time_change_end)
                         if graph_time_key not in graphs_change_time:
                             graphs_change_time[graph_time_key] = graphs_ns_time_window
                         else:
@@ -148,7 +155,9 @@ if __name__ == "__main__":
                 for ns in namespaces:
                     data_folder = base_dir + '/' + ns + '/metrics'
                     anomaly_list = anomalies.get(time_window, [])
-                    anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(config, base_output_dir, data_folder, simple.label, time_pair[0], time_pair[1])
+                    anomalies_ns, anomaly_time_series_index = get_anomaly_by_df(config, base_output_dir, data_folder,
+                                                                                simple.label, time_pair[0],
+                                                                                time_pair[1])
                     anomaly_list.extend(anomalies_ns)
                     anomaly_list = list(set(anomaly_list))
                     anomalies[time_window] = anomaly_list
@@ -205,26 +214,31 @@ if __name__ == "__main__":
                         anomaly_t_index = []
                         anomaly_series_time_window = anomalies_series_time_window[anomaly]
                         anomaly_series_time_window = [time_string_2_timestamp(a) for a in anomaly_series_time_window]
-                        if max(anomaly_series_time_window) < int(begin_t) or min(anomaly_series_time_window) > int(end_t):
+                        if max(anomaly_series_time_window) < int(begin_t) or min(anomaly_series_time_window) > int(
+                                end_t):
                             continue
                         for t in anomaly_series_time_window:
                             if int(begin_t) <= t <= int(end_t):
-                                a_t_index.append(t_index_time_window[timestamp_2_time_string(t)] - get_t(begin_t, t_index_time_window))
-                                anomaly_t_index.append(t_index_time_window[timestamp_2_time_string(t)] - get_t(begin_t, t_index_time_window))
+                                a_t_index.append(t_index_time_window[timestamp_2_time_string(t)] - get_t(begin_t,
+                                                                                                         t_index_time_window))
+                                anomaly_t_index.append(t_index_time_window[timestamp_2_time_string(t)] - get_t(begin_t,
+                                                                                                               t_index_time_window))
                         anomaly_time_series_index[anomaly] = anomaly_t_index
                     a_t_index = list(set(a_t_index))
                     graphs_anomaly_time_series_index[time_combine] = a_t_index
                     graphs_anomaly_time_series_index_map[time_combine] = anomaly_time_series_index
 
-                graphs_combine_index: Dict[str, GraphIndex] = {t_index: graph_index(graphs_combine[t_index]) for t_index in
+                graphs_combine_index: Dict[str, GraphIndex] = {t_index: graph_index(graphs_combine[t_index]) for t_index
+                                                               in
                                                                graphs_combine}
                 # construct graph neural network
-                hetero_graphs_combine: Dict[str, HeteroWithGraphIndex] = get_hg(graphs_combine, graphs_combine_index,
-                                                                                anomalies,
-                                                                                graphs_anomaly_time_series_index,
-                                                                                graphs_anomaly_time_series_index_map
-                                                                                , graphs_index_time_map)
-                top_k = train(config, simple.label, simple.root_cause, anomaly_index, hetero_graphs_combine, base_output_dir, config.train, rnn=config.rnn_type)
+                hetero_graphs_combine, center_map = get_hg(graphs_combine, graphs_combine_index,
+                                                           anomalies,
+                                                           graphs_anomaly_time_series_index,
+                                                           graphs_anomaly_time_series_index_map
+                                                           , graphs_index_time_map)
+                top_k = train(config, simple.label, simple.root_cause, center_map, anomaly_index, hetero_graphs_combine,
+                              base_output_dir, config.train, rnn=config.rnn_type)
                 top_k_service.append(top_k)
                 top_k_services.append(top_k)
         print_pr(top_k_service, os.path.join(base_output_dir, root_cause_service + '-topk.txt'))

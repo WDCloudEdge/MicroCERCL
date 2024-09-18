@@ -200,14 +200,18 @@ class AggrHGraphConvWindows(nn.Module):
                 for node_type in graph_anomaly_node_name:
                     graph_anomaly_nodes = graph_anomaly_node_name[node_type]
                     for graph_anomaly_node in graph_anomaly_nodes:
-                        is_neighbor = False
-                        if 'neighbor' in graph_anomaly_node:
-                            graph_anomaly_node = graph_anomaly_node[8:]
-                            is_neighbor = True
+                        is_neighbor = 'neighbor' in graph_anomaly_node
                         if is_neighbor:
-                            neighbors = graphs_anomaly_node_index[anomaly].get('neighbor', [])
-                            neighbors.append(index[graph_anomaly_node])
-                            graphs_anomaly_node_index[anomaly]['neighbor'] = neighbors
+                            center = graph_anomaly_node[9:][:graph_anomaly_node[9:].find('$')]
+                        else:
+                            center = graph_anomaly_node[:graph_anomaly_node.find('$')]
+                        graph_anomaly_node = graph_anomaly_node[graph_anomaly_node.rfind('$') + 1:]
+                        if 'neighbor' not in graphs_anomaly_node_index[anomaly]:
+                            graphs_anomaly_node_index[anomaly]['neighbor'] = {}
+                        if is_neighbor:
+                            neighbors_type = graphs_anomaly_node_index[anomaly]['neighbor'].get(center, [])
+                            neighbors_type.append(index[graph_anomaly_node])
+                            graphs_anomaly_node_index[anomaly]['neighbor'][center] = neighbors_type
                         else:
                             graphs_anomaly_node_index[anomaly]['source'] = [index[graph_anomaly_node]]
             window_graphs_center_node_index.append(graph_center_node_index)
@@ -219,14 +223,15 @@ class AggrHGraphConvWindows(nn.Module):
 
 
 class AggrUnsupervisedGNN(nn.Module):
-    def __init__(self, anomaly_index, out_channels, hidden_size, svc_feat_num, instance_feat_num, node_feat_num,
+    def __init__(self, center_map, anomaly_index, out_channels, hidden_size, svc_feat_num, instance_feat_num, node_feat_num,
                  rnn: RnnType = RnnType.LSTM):
         super(AggrUnsupervisedGNN, self).__init__()
         self.conv = AggrHGraphConvWindows(out_channel=out_channels, hidden_channel=hidden_size,
                                           svc_feat_num=svc_feat_num, instance_feat_num=instance_feat_num,
                                           node_feat_num=node_feat_num, rnn=rnn)
-        self.precessor_neighbor_weight = nn.Parameter(th.ones(1, len(anomaly_index), requires_grad=True, device='cpu'))
+        self.precessor_neighbor_weight = nn.Parameter(th.ones(len(anomaly_index), len(list(center_map.keys())), requires_grad=True, device='cpu'))
         self.anomaly_index = anomaly_index
+        self.center_map = center_map
         self.criterion = nn.MSELoss()
 
     def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):
@@ -261,12 +266,13 @@ class AggrUnsupervisedGNN(nn.Module):
                 if len(anomaly_index_combine[anomaly]) > 0:
                     aggr_anomaly_nodes_index = anomaly_index_combine[anomaly]
                     rate = 1
-                    precessor_rate = 1 * self.precessor_neighbor_weight[0][self.anomaly_index[anomaly[anomaly.find('-') + 1:]]]
                     aggr_feat_label_weight = torch.zeros_like(aggr_feat_idx)
                     source_index_matrix = torch.tensor(aggr_anomaly_nodes_index['source'])
                     aggr_feat_label_weight[source_index_matrix] = rate
                     if 'neighbor' in aggr_anomaly_nodes_index:
-                        neighbor_index_matrix = torch.tensor(aggr_anomaly_nodes_index['neighbor'])
-                        aggr_feat_label_weight[neighbor_index_matrix] = precessor_rate
+                        for center in aggr_anomaly_nodes_index['neighbor']:
+                            precessor_rate = 1 * self.precessor_neighbor_weight[self.anomaly_index[anomaly[anomaly.find('-') + 1:]]][self.center_map[center]]
+                            neighbor_index_matrix = torch.tensor(aggr_anomaly_nodes_index['neighbor'][center])
+                            aggr_feat_label_weight[neighbor_index_matrix] = precessor_rate
                     sum_criterion += self.criterion(aggr_feat_idx, aggr_feat_label_weight)
         return sum_criterion
