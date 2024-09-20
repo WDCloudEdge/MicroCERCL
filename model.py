@@ -147,8 +147,8 @@ def train(config, label: str, root_cause: str, center_map: Dict[str, int], anoma
                         node = window_graph_index_reverse[idx]
                         s = output_score_node.get(node, 0)
                         if s != 0:
-                            output_score_node[node] = s + score.item()
+                            output_score_node[node] = s + abs(score.item())
                         else:
-                            output_score_node[node] = score.item()
+                            output_score_node[node] = abs(score.item())
             sorted_dict_node = dict(sorted(output_score_node.items(), key=lambda item: item[1], reverse=True))
             return top_k_node(sorted_dict_node, root_cause, output_file)
