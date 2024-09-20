@@ -46,7 +46,8 @@ class UnsupervisedGNN(nn.Module):
                  rnn: RnnType = RnnType.LSTM):
         super(UnsupervisedGNN, self).__init__()
         graph = graphs[next(iter(graphs))]
-        self.aggr_conv = AggrUnsupervisedGNN(center_map, anomaly_index, out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
+        sorted_graphs = [graphs[time_sorted] for time_sorted in sorted(graphs.keys())]
+        self.aggr_conv = AggrUnsupervisedGNN(sorted_graphs, center_map, anomaly_index, out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
                                              svc_feat_num=
                                              graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
                                              node_feat_num=

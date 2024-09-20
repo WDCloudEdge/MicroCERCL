@@ -380,7 +380,7 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
         if anomaly in graph.nodes:
             type = graph.nodes[anomaly]['type']
             center = graph.nodes[anomaly]['center']
-            anomaly_key = type + '-' + anomaly
+            anomaly_key = anomaly
             anomaly_type_map = anomaly_type_index.get(anomaly_key, {})
             anomaly_type_list = anomaly_type_map.get(type, [])
             anomaly_type_list.append(index.index[type][anomaly])
