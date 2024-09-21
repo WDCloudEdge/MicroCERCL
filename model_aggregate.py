@@ -222,7 +222,7 @@ class AggrHGraphConvWindows(nn.Module):
                 center_nodes_index = []
                 for _, nodes_index in graph_center_node_index[center].items():
                     center_nodes_index.extend(nodes_index)
-                attention_scores_after_center[center_nodes_index] = th.max(attention_scores[sorted(center_nodes_index)] * aggr_feat_weighted[i], dim=1)[0].unsqueeze(-1)
+                attention_scores_after_center[sorted(center_nodes_index)] = th.max(attention_scores[sorted(center_nodes_index)] * aggr_feat_weighted[i], dim=1)[0].unsqueeze(-1)
             atten_sorted.append(attention_scores_after_center)
             window_graphs_center_node_index.append(graph_center_node_index)
             window_graphs_anomaly_node_index.append(graphs_anomaly_node_index)
