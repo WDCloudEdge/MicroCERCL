@@ -67,31 +67,17 @@ class AggrHGraphConvWindow(nn.Module):
                                                      self.node_feat_num)
 
     def forward(self, graph: HeteroWithGraphIndex):
-        input_data_list = []
-
-        def get_data_at_time_index(n, data):
-            data_at_time_index = []
-            for index in range(data.shape[0]):
-                data_at_time_index.append(data[index][n])
-            if th.cuda.is_available():
-                return th.stack(data_at_time_index, dim=1).to('cpu').T
-            else:
-                return th.stack(data_at_time_index, dim=1).T
-
-        for i in range(graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[1]):
-            feat_dict = {
-                NodeType.NODE.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.NODE.value].data[
-                    'feat']),
-                NodeType.SVC.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.SVC.value].data[
-                    'feat']),
-                NodeType.POD.value: get_data_at_time_index(i, graph.hetero_graph.nodes[NodeType.POD.value].data[
-                    'feat'])
-            }
-            single_graph_time_series_feat = self.hGraph_conv_layer(graph, feat_dict)
-            input_data_list.append(single_graph_time_series_feat.T)
+        feat_dict = {
+            NodeType.NODE.value: graph.hetero_graph.nodes[NodeType.NODE.value].data[
+                'feat'],
+            NodeType.SVC.value: graph.hetero_graph.nodes[NodeType.SVC.value].data[
+                'feat'],
+            NodeType.POD.value: graph.hetero_graph.nodes[NodeType.POD.value].data[
+                'feat'],
+        }
+        graph_time_series_feat = self.hGraph_conv_layer(graph, feat_dict)
         node_num = len(graph.hetero_graph_index.index[NodeType.NODE.value])
         instance_num = len(graph.hetero_graph_index.index[NodeType.POD.value])
-        graph_time_series_feat = th.stack(input_data_list, dim=1).T
         hetero_graph_feat_dict = {NodeType.NODE.value: graph_time_series_feat[:node_num],
                                   NodeType.POD.value: graph_time_series_feat[node_num:node_num + instance_num],
                                   NodeType.SVC.value: graph_time_series_feat[node_num + instance_num:]}

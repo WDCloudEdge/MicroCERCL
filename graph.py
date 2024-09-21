@@ -102,25 +102,6 @@ def combine_timestamps_graph(graphs_at_timestamp: Dict[str, nx.DiGraph], namespa
     return combine_graphs
 
 
-def collect_topology_change_time_list(graphs_at_timestamp: Dict[str, nx.DiGraph], namespace) -> \
-        Dict[str, nx.DiGraph]:
-    combine_graphs: Dict[str, nx.DiGraph] = {}
-    for i in range(len(topology_change_time_window_list) - 1):
-        begin = util.time_string_2_timestamp(topology_change_time_window_list[i])
-        end = util.time_string_2_timestamp(topology_change_time_window_list[i + 1])
-        combine = []
-        for timestamp in graphs_at_timestamp:
-            time = int(timestamp)
-            if begin <= time < end:
-                combine.append(graphs_at_timestamp[timestamp])
-        if len(combine) == 0:
-            break
-        else:
-            key = str(begin) + '-' + str(end) + '-' + namespace
-            combine_graphs[key] = combine_graph(combine)
-    return combine_graphs
-
-
 def combine_ns_graphs(graphs_time_window: Dict[str, nx.DiGraph]) -> Dict[str, nx.DiGraph]:
     graphs_ns_combine: Dict[str, List[nx.DiGraph]] = {}
     graphs_combine: Dict[str, nx.DiGraph] = {}

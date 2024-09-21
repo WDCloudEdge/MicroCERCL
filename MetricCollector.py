@@ -11,7 +11,7 @@ from graph import NodeType, graph_load
 
 def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGraph]:
     graphs_at_timestamp: Dict[str, nx.DiGraph] = {}
-    graph_df = pd.DataFrame(columns=['source', 'destination'])
+    graph_df = pd.DataFrame(columns=['source', 'destination'], dtype=object)
     svc_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     pod_timestamp_map: Dict[str, List[Tuple[str, str]]] = {}
     path = os.path.join(_dir, 'graph.csv')
