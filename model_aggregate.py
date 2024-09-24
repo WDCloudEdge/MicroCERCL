@@ -142,13 +142,13 @@ class AggrHGraphConvWindows(nn.Module):
                                     batch_first=True)
         self.graph_window_conv = AggrHGraphConvWindow(64, self.hidden_size, svc_feat_num, instance_feat_num,
                                                       node_feat_num, rnn)
-        self.linear = nn.Linear(self.hidden_size, 1)
+        self.linear = nn.Linear(self.hidden_size, self.out_size)
         self.output_layer = nn.Softmax(dim=0)
         self.activation = nn.ReLU()
         # self.pooling = HeteroGlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, out_channel))
         self.pooling = HeteroGlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, hidden_channel))
-        self.center_attention = AttentionLayer(hidden_channel, out_channel, num_heads=1)
-        self.node_attention = AttentionLayer(hidden_channel, out_channel, num_heads=1)
+        self.center_attention = AttentionLayer(hidden_channel, hidden_channel, num_heads=1)
+        self.node_attention = AttentionLayer(hidden_channel, hidden_channel, num_heads=1)
 
     def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):
         output_data_list = []
@@ -222,7 +222,7 @@ class AggrHGraphConvWindows(nn.Module):
                 center_nodes_index = []
                 for _, nodes_index in graph_center_node_index[center].items():
                     center_nodes_index.extend(nodes_index)
-                attention_scores_after_center[sorted(center_nodes_index)] = th.max(attention_scores[sorted(center_nodes_index)] * aggr_feat_weighted[i], dim=1)[0].unsqueeze(-1)
+                attention_scores_after_center[sorted(center_nodes_index)] = th.max(attention_scores[sorted(center_nodes_index)] * self.activation(aggr_feat_weighted[i]), dim=1)[0].unsqueeze(-1)
             atten_sorted.append(attention_scores_after_center)
             window_graphs_center_node_index.append(graph_center_node_index)
             window_graphs_anomaly_node_index.append(graphs_anomaly_node_index)

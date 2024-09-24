@@ -141,14 +141,14 @@ def train(config, label: str, root_cause: str, center_map: Dict[str, int], anoma
             output_score_node = {}
             for aggr_feat_list in output_list:
                 for idx, window_graph_index in enumerate(window_graphs_index):
-                    output = aggr_feat_list[idx]
+                    output = th.max(aggr_feat_list[idx], dim=1)[0]
                     window_graph_index_reverse = {window_graph_index[key]: key for key in window_graph_index}
                     for idx, score in enumerate(output):
                         node = window_graph_index_reverse[idx]
                         s = output_score_node.get(node, 0)
                         if s != 0:
-                            output_score_node[node] = s + abs(score.item())
+                            output_score_node[node] = s + score.item()
                         else:
-                            output_score_node[node] = abs(score.item())
+                            output_score_node[node] = score.item()
             sorted_dict_node = dict(sorted(output_score_node.items(), key=lambda item: item[1], reverse=True))
             return top_k_node(sorted_dict_node, root_cause, output_file)

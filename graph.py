@@ -394,6 +394,9 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
                 neighbor_key = 'neighbor'
                 # find precessor nodes of the anomaly node
                 predecessors = list(graph.predecessors(anomaly))
+                successors = list(graph.successors(anomaly))
+                predecessors.extend(successors)
+                predecessors = list(set(predecessors))
                 for n in predecessors:
                     neigh_center = graph.nodes[n]['center']
                     neigh_type = graph.nodes[n]['type']
