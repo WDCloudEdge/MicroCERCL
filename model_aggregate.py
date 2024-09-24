@@ -207,7 +207,7 @@ class AggrHGraphConvWindows(nn.Module):
                         else:
                             graphs_anomaly_node_index[anomaly]['source'] = [index[graph_anomaly_node]]
             # Apply center attention
-            attention_scores_after_center = th.zeros([attention_scores.shape[0], self.out_size])
+            attention_scores_after_center = th.zeros([attention_scores.shape[0], self.out_size]).to('cpu')
             center_embeddings = []
             for center in graph_center_node_index:
                 center_nodes_index = []
