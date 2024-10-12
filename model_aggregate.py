@@ -67,13 +67,15 @@ class AggrHGraphConvWindow(nn.Module):
                                                      self.node_feat_num)
 
     def forward(self, graph: HeteroWithGraphIndex):
+        time_series = graph.hetero_graph.nodes[NodeType.SVC.value].data[
+            'feat'].shape[1]
         feat_dict = {
             NodeType.NODE.value: graph.hetero_graph.nodes[NodeType.NODE.value].data[
-                'feat'],
+                                     'feat'][:, :time_series, :],
             NodeType.SVC.value: graph.hetero_graph.nodes[NodeType.SVC.value].data[
-                'feat'],
+                                    'feat'][:, :time_series, :],
             NodeType.POD.value: graph.hetero_graph.nodes[NodeType.POD.value].data[
-                'feat'],
+                                    'feat'][:, :time_series, :],
         }
         graph_time_series_feat = self.hGraph_conv_layer(graph, feat_dict)
         node_num = len(graph.hetero_graph_index.index[NodeType.NODE.value])
