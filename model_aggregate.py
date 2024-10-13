@@ -13,10 +13,7 @@ from dgl import (
     to_homogeneous
 )
 from graph import EdgeType, HeteroWithGraphIndex, NodeType
-from typing import Dict, Set
-import sys
-import copy
-from itertools import combinations
+from typing import Dict
 from model_attention import AttentionLayer
 from Config import RnnType
 
@@ -145,10 +142,8 @@ class AggrHGraphConvWindows(nn.Module):
         self.linear = nn.Linear(self.hidden_size, self.out_size)
         self.output_layer = nn.Softmax(dim=0)
         self.activation = nn.ReLU()
-        # self.pooling = HeteroGlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, out_channel))
         self.pooling = HeteroGlobalAttentionPooling(gate_nn=nn.Linear(self.hidden_size, hidden_channel))
         self.center_attention = AttentionLayer(hidden_channel, hidden_channel, num_heads=1)
-        self.node_attention = AttentionLayer(hidden_channel, hidden_channel, num_heads=1)
 
     def forward(self, graphs: Dict[str, HeteroWithGraphIndex]):
         output_data_list = []
@@ -241,8 +236,6 @@ class AggrUnsupervisedGNN(nn.Module):
         self.conv = AggrHGraphConvWindows(out_channel=out_channels, hidden_channel=hidden_size,
                                           svc_feat_num=svc_feat_num, instance_feat_num=instance_feat_num,
                                           node_feat_num=node_feat_num, rnn=rnn)
-        # self.precessor_neighbor_center_weight = nn.Parameter(
-        #     th.ones(len(anomaly_index), len(list(center_map.keys())), requires_grad=True, device='cpu'))
         anomaly_index_reverse = {idx: an for an, idx in anomaly_index.items()}
         anomaly_nodes_maps = [sorted_graph.anomaly_name for sorted_graph in sorted_graphs]
         self.graphs_anomaly_center_nodes = []
