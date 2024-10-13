@@ -12,8 +12,9 @@ from util.utils import top_k_node
 
 
 class EarlyStopping:
-    def __init__(self, patience=5, delta=1e-6, max_loss=5, min_epoch=500):
+    def __init__(self, patience_output=5, patience=5, delta=1e-6, max_loss=5, min_epoch=500):
         self.patience = patience
+        self.patience_output = patience_output
         self.delta = delta
         self.counter = 0
         self.best_loss = float('inf')
@@ -39,14 +40,22 @@ class EarlyStopping:
             if val_loss < self.best_loss:
                 self.best_loss = val_loss
 
+    def get_patience_output(self):
+        if self.patience_output == 0:
+            return []
+        else:
+            return self.output_list[-self.patience_output:]
+
 
 # An Unsupervised Graph Neural Network Model Combining Failure Backpropagation and Topology Aggregation
 class UnsupervisedGNN(nn.Module):
-    def __init__(self, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex],
+    def __init__(self, center_map, anomaly_index, out_channels, hidden_size, graphs: Dict[str, HeteroWithGraphIndex],
                  rnn: RnnType = RnnType.LSTM):
         super(UnsupervisedGNN, self).__init__()
         graph = graphs[next(iter(graphs))]
-        self.aggr_conv = AggrUnsupervisedGNN(anomaly_index, out_channels=out_channels, hidden_size=hidden_size, rnn=rnn,
+        sorted_graphs = [graphs[time_sorted] for time_sorted in sorted(graphs.keys())]
+        self.aggr_conv = AggrUnsupervisedGNN(sorted_graphs, center_map, anomaly_index, out_channels=out_channels,
+                                             hidden_size=hidden_size, rnn=rnn,
                                              svc_feat_num=
                                              graph.hetero_graph.nodes[NodeType.SVC.value].data['feat'].shape[2],
                                              node_feat_num=
@@ -76,11 +85,12 @@ class UnsupervisedGNN(nn.Module):
                     init.constant_(m.bias, 0)
 
 
-def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], graphs: Dict[str, HeteroWithGraphIndex],
+def train(config, label: str, root_cause: str, center_map: Dict[str, int], anomaly_index: Dict[str, int],
+          graphs: Dict[str, HeteroWithGraphIndex],
           dir: str = '',
           is_train: TrainType = TrainType.EVAL,
           learning_rate=0.01, rnn: RnnType = RnnType.LSTM):
-    model = UnsupervisedGNN(anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn)
+    model = UnsupervisedGNN(center_map, anomaly_index, out_channels=1, hidden_size=64, graphs=graphs, rnn=rnn)
     if torch.cuda.is_available():
         model = model.to('cpu')
     root_cause_file = label + '_' + rnn.value
@@ -88,7 +98,7 @@ def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], gr
     root_cause = root_cause
     with open(dir + '/result-' + root_cause_file + '.log', "a") as output_file:
         print(f"root_cause: {root_cause}", file=output_file)
-        early_stopping = EarlyStopping(patience=config.patience, delta=config.delta, min_epoch=config.min_epoch)
+        early_stopping = EarlyStopping(patience_output=4, patience=config.patience, delta=config.delta, min_epoch=config.min_epoch)
         if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
             if is_train == TrainType.TRAIN:
                 model.initialize_weights()
@@ -124,22 +134,21 @@ def train(config, label: str, root_cause: str, anomaly_index: Dict[str, int], gr
             aggr_feat_list, aggr_center_index, aggr_anomaly_index, window_graphs_index, window_time_series_sizes, window_anomaly_time_series = model(
                 graphs)
             if is_train == TrainType.TRAIN or is_train == TrainType.TRAIN_CHECKPOINT:
-                output_list = early_stopping.output_list
-                if len(output_list) == 0:
-                    output_list = [aggr_feat_list]
+                output_list = early_stopping.get_patience_output()
+                output_list.append(aggr_feat_list)
             elif is_train == TrainType.EVAL:
                 output_list = [aggr_feat_list]
             output_score_node = {}
             for aggr_feat_list in output_list:
                 for idx, window_graph_index in enumerate(window_graphs_index):
-                    output = aggr_feat_list[idx]
+                    output = th.max(aggr_feat_list[idx], dim=1)[0]
                     window_graph_index_reverse = {window_graph_index[key]: key for key in window_graph_index}
                     for idx, score in enumerate(output):
                         node = window_graph_index_reverse[idx]
                         s = output_score_node.get(node, 0)
                         if s != 0:
-                            output_score_node[node] = s + abs(score.item())
+                            output_score_node[node] = s + score.item()
                         else:
-                            output_score_node[node] = abs(score.item())
+                            output_score_node[node] = score.item()
             sorted_dict_node = dict(sorted(output_score_node.items(), key=lambda item: item[1], reverse=True))
             return top_k_node(sorted_dict_node, root_cause, output_file)

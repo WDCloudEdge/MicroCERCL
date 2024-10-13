@@ -1,6 +1,6 @@
 import sys
 from collections import defaultdict
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 import networkx as nx
 import pandas as pd
 import util.utils as util
@@ -207,7 +207,7 @@ def df_prefix_match_svc(df: pd.DataFrame, prefix: str, stop_words: []) -> pd.Dat
 def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], anomaly_nodes: Dict[str, List],
            graphs_anomaly_time_series_index: Dict[str, List],
            anomaly_time_series: Dict[str, Dict[str, List[int]]],
-           graphs_index_time_map: Dict[str, Dict[int, str]]) -> Dict[str, HeteroWithGraphIndex]:
+           graphs_index_time_map: Dict[str, Dict[int, str]]) -> Tuple[Dict[str, HeteroWithGraphIndex], Dict[str, int]]:
     hg_dict: Dict[str, HeteroWithGraphIndex] = {}
     for time_change_window in graphs:
         hg_data_dict = defaultdict(lambda: ([], []))
@@ -326,7 +326,14 @@ def get_hg(graphs: Dict[str, nx.DiGraph], graphs_index: Dict[str, GraphIndex], a
                                   anomaly_type_name, graph_anomaly_time_series_index, anomaly_time_series[time_change_window],
                                   graphs_index_time_map[time_change_window], node_exist)
         hg_dict[time_change_window] = hg
-    return hg_dict
+    center_map = {center: center_index for center_index, center in enumerate(list(center_name.keys()))}
+    if 'svc-none' not in center_map:
+        center_map['svc-none'] = len(list(center_map.keys()))
+    if 'edge-2' not in center_map:
+        center_map['edge-2'] = len(list(center_map.keys()))
+    if 'edge-1' not in center_map:
+        center_map['edge-1'] = len(list(center_map.keys()))
+    return hg_dict, center_map
 
 
 def get_edge_type(u_type, v_type):
@@ -353,7 +360,8 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
     for anomaly in anomalies:
         if anomaly in graph.nodes:
             type = graph.nodes[anomaly]['type']
-            anomaly_key = type + '-' + anomaly
+            center = graph.nodes[anomaly]['center']
+            anomaly_key = anomaly
             anomaly_type_map = anomaly_type_index.get(anomaly_key, {})
             anomaly_type_list = anomaly_type_map.get(type, [])
             anomaly_type_list.append(index.index[type][anomaly])
@@ -361,21 +369,25 @@ def get_anomaly_index(index: GraphIndex, anomalies, graph: nx.DiGraph, is_neighb
 
             anomaly_name_map = anomaly_type_name.get(anomaly_key, {})
             anomaly_name_list = anomaly_name_map.get(type, [])
-            anomaly_name_list.append(anomaly)
+            anomaly_name_list.append(center + '$' + type + '$' + anomaly)
             anomaly_name_map[type] = anomaly_name_list
             if is_neighbor:
                 neighbor_key = 'neighbor'
                 # find precessor nodes of the anomaly node
                 predecessors = list(graph.predecessors(anomaly))
+                successors = list(graph.successors(anomaly))
+                predecessors.extend(successors)
+                predecessors = list(set(predecessors))
                 for n in predecessors:
-                    type = graph.nodes[n]['type']
-                    anomaly_type_list = anomaly_type_map.get(type, [])
-                    anomaly_type_list.append(neighbor_key + str(index.index[type][n]))
-                    anomaly_type_map[type] = anomaly_type_list
+                    neigh_center = graph.nodes[n]['center']
+                    neigh_type = graph.nodes[n]['type']
+                    anomaly_type_list = anomaly_type_map.get(neigh_type, [])
+                    anomaly_type_list.append(neighbor_key + '$' + neigh_center + '$' + neigh_type + '$' + str(index.index[neigh_type][n]))
+                    anomaly_type_map[neigh_type] = anomaly_type_list
 
-                    anomaly_name_list = anomaly_name_map.get(type, [])
-                    anomaly_name_list.append(neighbor_key + n)
-                    anomaly_name_map[type] = anomaly_name_list
+                    anomaly_name_list = anomaly_name_map.get(neigh_type, [])
+                    anomaly_name_list.append(neighbor_key + '$' + neigh_center + '$' + neigh_type + '$' + n)
+                    anomaly_name_map[neigh_type] = anomaly_name_list
             anomaly_type_index[anomaly_key] = anomaly_type_map
             anomaly_type_name[anomaly_key] = anomaly_name_map
     return anomaly_type_index, anomaly_type_name

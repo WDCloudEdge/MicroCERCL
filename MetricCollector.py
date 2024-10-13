@@ -121,8 +121,8 @@ def collect_graph(config: Config, _dir: str, collect: bool) -> Dict[str, nx.DiGr
                 g.add_edge(source, destination)
                 g.nodes[source]['type'] = NodeType.SVC.value
                 g.nodes[destination]['type'] = NodeType.SVC.value
-                g.nodes[source]['center'] = ''
-                g.nodes[destination]['center'] = ''
+                g.nodes[source]['center'] = 'svc-none'
+                g.nodes[destination]['center'] = 'svc-none'
                 svc_exist.append(source)
                 svc_exist.append(destination)
         svc_exist = list(set(svc_exist))
