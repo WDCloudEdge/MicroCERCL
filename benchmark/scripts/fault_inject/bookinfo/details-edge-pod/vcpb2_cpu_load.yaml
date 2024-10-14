@@ -1,0 +1,16 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cpu
+  namespace: chaos-mesh
+spec:
+  mode: one
+  selector:
+    pods:
+      bookinfo:
+        - details-v1-edge-6867d85956-vcpb2
+  stressors:
+    cpu:
+      workers: 2
+      load: 100
+  duration: '3m'

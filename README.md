@@ -2,9 +2,14 @@
 
 [中文文档](README_zh.md)
 
+## Benchmark
+
+We build a hybrid-deployed benchmark in the cloud-edge environment, which contains four widely used microservice systems. These systems are adapted for hybrid deployment and integrated into a unified monitoring framework.
+Please click here for the details of the [Benchmark](benchmark/README.md).
+
 ## Description
 
-**MicroCERCL** extracts valid contents from kernel-level logs to prioritize localizing the kernel-level root cause. Moreover, **MicroCERCL** constructs a heterogeneous dynamic topology stack and train a graph neural network model to accurately localize the application-level root cause without relying on historical data.
+**MicroCERCL** constructs a heterogeneous dynamic topology stack based on metric data, after anomaly detection, it trains a graph neural network model to accurately localize the root cause without relying on historical data in the cloud-edge environment.
 
 ## Quick Start
 
@@ -103,10 +108,10 @@ McroCERCL/
 │├── README.md
 │├── anomaly_detection.py
 │├── graph.py
-│├── log_parser.py
 │├── main.py
 │├── model.py
 │├── model_aggregate.py
+│├── model_attention.py
 │├── requirements.txt
 │└── util/
 │└── │├── KubernetesClient.py

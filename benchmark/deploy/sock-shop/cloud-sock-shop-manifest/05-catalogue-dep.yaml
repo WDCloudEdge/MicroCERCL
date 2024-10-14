@@ -1,0 +1,64 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppSet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: catalogue
+spec:
+  selector:
+    matchLabels:
+      app: catalogue
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          app: catalogue
+      spec:
+        template:
+          metadata:
+            labels:
+              app: catalogue
+          spec:
+            containers:
+            - name: server
+              #image: weaveworksdemos/catalogue:0.3.5
+              image: yidaoada/catalogue:v1.39
+              resources:
+                limits:
+                  cpu: '1'
+                  memory: 1Gi
+                requests:
+                  cpu: 100m
+                  memory: 100Mi
+              ports:
+              - containerPort: 8080
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 10001
+                capabilities:
+                  drop:
+                    - all
+                  add:
+                    - NET_BIND_SERVICE
+                readOnlyRootFilesystem: true
+            nodeSelector:
+              beta.kubernetes.io/os: linux
+              node-role.kubernetes.io/worker: ""
+  topology:
+    pools:
+    - name: cloud
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - cloud
+      replicas: 0
+    - name: edge
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - edge-2
+      replicas: 1

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-gateway-svc
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: edge-gateway-svc-31808
+    port: 31808
+    protocol: TCP
+    targetPort: 31808
+  - name: edge-gateway-svc-5005
+    port: 5005
+    protocol: TCP
+    targetPort: 5005
+  selector:
+    app: edge-gateway-svc
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

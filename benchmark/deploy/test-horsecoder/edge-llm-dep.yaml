@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge-llm-deployment
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: edge-llm-svc
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: edge-llm-svc
+    spec:
+      containers:
+      - image: habor.production.horsecoder.com/horsecoder/edge-llm:latest
+        imagePullPolicy: Always
+        name: server
+        ports:
+        - containerPort: 5005
+          protocol: TCP
+        - containerPort: 12223
+          protocol: TCP
+        - containerPort: 12222
+          protocol: TCP
+        - containerPort: 12224
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        apps.openyurt.io/nodepool: edge-2
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

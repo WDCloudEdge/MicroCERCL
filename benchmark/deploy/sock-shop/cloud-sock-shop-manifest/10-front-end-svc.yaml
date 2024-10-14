@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-end
+  annotations:
+    prometheus.io/scrape: 'true'
+    openyurt.io/topologyKeys: openyurt.io/nodepool
+  labels:
+    system.name: sock-shop
+spec:
+  type: NodePort
+  ports:
+  - name: sock-shop-port
+    port: 80
+    targetPort: 8079
+    nodePort: 30002
+  selector:
+    app: front-end

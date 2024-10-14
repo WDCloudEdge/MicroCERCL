@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-llm-svc
+spec:
+  ports:
+  - name: edge-llm-svc-5005
+    port: 5005
+    protocol: TCP
+    targetPort: 5005
+  - name: edge-llm-svc-12223
+    port: 12223
+    protocol: TCP
+    targetPort: 12223
+  - name: edge-llm-svc-12222
+    port: 12222
+    protocol: TCP
+    targetPort: 12222
+  - name: edge-llm-svc-12224
+    port: 12224
+    protocol: TCP
+    targetPort: 12224
+  selector:
+    app: edge-llm-svc
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

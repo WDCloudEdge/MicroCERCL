@@ -1,0 +1,69 @@
+
+
+
+/home/cron/jupiter-hybrid/bookinfo/details/cpu_load.yaml
+stresschaos.chaos-mesh.org/cpu created
+2024-01-13 13:59:05 start create.
+2024-01-13 14:01:05 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-01-13 14:01:06 finish delete.
+
+
+stresschaos.chaos-mesh.org/cpu created
+2024-01-13 14:13:06 start create.
+2024-01-13 14:15:06 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-01-13 14:15:06 finish delete.
+
+
+stresschaos.chaos-mesh.org/cpu created
+2024-01-13 14:27:07 start create.
+2024-01-13 14:29:07 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-01-13 14:29:07 finish delete.
+
+
+/home/cron/jupiter-hybrid/bookinfo/details/mem_load.yaml
+stresschaos.chaos-mesh.org/memory-3 created
+2024-01-13 14:53:20 start create.
+2024-01-13 14:55:20 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-01-13 14:55:21 finish delete.
+
+
+stresschaos.chaos-mesh.org/memory-3 created
+2024-01-13 15:07:21 start create.
+2024-01-13 15:09:21 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-01-13 15:09:21 finish delete.
+
+
+stresschaos.chaos-mesh.org/memory-3 created
+2024-01-13 15:21:21 start create.
+2024-01-13 15:23:21 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-01-13 15:23:21 finish delete.
+
+
+/home/cron/jupiter-hybrid/bookinfo/details/net_latency.yaml
+networkchaos.chaos-mesh.org/delay-2 created
+2024-01-13 15:38:20 start create.
+2024-01-13 15:40:20 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-01-13 15:40:20 finish delete.
+
+
+networkchaos.chaos-mesh.org/delay-2 created
+2024-01-13 15:52:20 start create.
+2024-01-13 15:54:20 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-01-13 15:54:20 finish delete.
+
+
+networkchaos.chaos-mesh.org/delay-2 created
+2024-01-13 16:06:21 start create.
+2024-01-13 16:08:21 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-01-13 16:08:21 finish delete.
+
+

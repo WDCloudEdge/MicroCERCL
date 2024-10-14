@@ -1,0 +1,17 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: delay-2
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - 'bookinfo'
+    labelSelectors:
+      'chaosmesh': 'productpage'
+  delay:
+    latency: '1000ms'
+    correlation: '100'
+    jitter: '0ms'
+  duration: '3m'

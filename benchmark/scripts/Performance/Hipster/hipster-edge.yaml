@@ -1,0 +1,825 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: emailservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: emailservice-edge
+  template:
+    metadata:
+      labels:
+        app: emailservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/emailservice:v0.8.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: DISABLE_PROFILER
+          value: "1"
+        readinessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 8080
+        livenessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 8080
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emailservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: emailservice-edge
+  ports:
+  - name: grpc
+    port: 5000
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: checkoutservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: checkoutservice-edge
+  template:
+    metadata:
+      labels:
+        app: checkoutservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+          image: habor.production.horsecoder.com/hipster/checkoutservice:v0.8.0
+          ports:
+          - containerPort: 5050
+          readinessProbe:
+            tcpSocket:
+              port: 5050
+          livenessProbe:
+            tcpSocket:
+              port: 5050
+          env:
+          - name: PORT
+            value: "5050"
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "productcatalogservice-edge:3550"
+          - name: SHIPPING_SERVICE_ADDR
+            value: "shippingservice-edge:50051"
+          - name: PAYMENT_SERVICE_ADDR
+            value: "paymentservice-edge:50051"
+          - name: EMAIL_SERVICE_ADDR
+            value: "emailservice-edge:5000"
+          - name: CURRENCY_SERVICE_ADDR
+            value: "currencyservice-edge:7000"
+          - name: CART_SERVICE_ADDR
+            value: "cartservice-edge:7070"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 950Mi
+            requests:
+              cpu: 150m
+              memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkoutservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: checkoutservice-edge
+  ports:
+  - name: grpc
+    port: 5050
+    targetPort: 5050
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: recommendationservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: recommendationservice-edge
+  template:
+    metadata:
+      labels:
+        app: recommendationservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/recommendationservice:v0.8.0
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 8080
+        livenessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalogservice-edge:3550"
+        - name: DISABLE_PROFILER
+          value: "1"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommendationservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: recommendationservice-edge
+  ports:
+  - name: grpc
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: frontend-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+          image: habor.production.horsecoder.com/hipster/frontend:v0.8.0
+          ports:
+          - containerPort: 8080
+          readinessProbe:
+            initialDelaySeconds: 10
+            httpGet:
+              path: "/_healthz"
+              port: 8080
+              httpHeaders:
+              - name: "Cookie"
+                value: "shop_session-id=x-readiness-probe"
+          livenessProbe:
+            initialDelaySeconds: 10
+            httpGet:
+              path: "/_healthz"
+              port: 8080
+              httpHeaders:
+              - name: "Cookie"
+                value: "shop_session-id=x-liveness-probe"
+          env:
+          - name: PORT
+            value: "8080"
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "productcatalogservice-edge:3550"
+          - name: CURRENCY_SERVICE_ADDR
+            value: "currencyservice-edge:7000"
+          - name: CART_SERVICE_ADDR
+            value: "cartservice-edge:7070"
+          - name: RECOMMENDATION_SERVICE_ADDR
+            value: "recommendationservice-edge:8080"
+          - name: SHIPPING_SERVICE_ADDR
+            value: "shippingservice-edge:50051"
+          - name: CHECKOUT_SERVICE_ADDR
+            value: "checkoutservice-edge:5050"
+          - name: AD_SERVICE_ADDR
+            value: "adservice-edge:9555"
+          # # ENV_PLATFORM: One of: local, gcp, aws, azure, onprem, alibaba
+          # # When not set, defaults to "local" unless running in GKE, otherwies auto-sets to gcp
+          # - name: ENV_PLATFORM
+          #   value: "aws"
+          - name: ENABLE_PROFILER
+            value: "0"
+          # - name: CYMBAL_BRANDING
+          #   value: "true"
+          # - name: FRONTEND_MESSAGE
+          #   value: "Replace this with a message you want to display on all pages."
+          resources:
+            limits:
+              cpu: 500m
+              memory: 950Mi
+            requests:
+              cpu: 250m
+              memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: paymentservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: paymentservice-edge
+  template:
+    metadata:
+      labels:
+        app: paymentservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/paymentservice:v0.8.0
+        ports:
+        - containerPort: 50051
+        env:
+        - name: PORT
+          value: "50051"
+        - name: DISABLE_PROFILER
+          value: "1"
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: paymentservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: paymentservice-edge
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: productcatalogservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: productcatalogservice-edge
+  template:
+    metadata:
+      labels:
+        app: productcatalogservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/productcatalogservice:v0.8.0
+        ports:
+        - containerPort: 3550
+        env:
+        - name: PORT
+          value: "3550"
+        - name: DISABLE_PROFILER
+          value: "1"
+        readinessProbe:
+          tcpSocket:
+            port: 3550
+        livenessProbe:
+          tcpSocket:
+            port: 3550
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: productcatalogservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: productcatalogservice-edge
+  ports:
+  - name: grpc
+    port: 3550
+    targetPort: 3550
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: cartservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cartservice-edge
+  template:
+    metadata:
+      labels:
+        app: cartservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/cartservice:v0.8.0
+        ports:
+        - containerPort: 7070
+        env:
+        - name: REDIS_ADDR
+          value: "redis-cart-edge:6379"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+        readinessProbe:
+          initialDelaySeconds: 15
+          tcpSocket:
+            port: 7070
+        livenessProbe:
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          tcpSocket:
+            port: 7070
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cartservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: cartservice-edge
+  ports:
+  - name: grpc
+    port: 7070
+    targetPort: 7070
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: currencyservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: currencyservice-edge
+  template:
+    metadata:
+      labels:
+        app: currencyservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/currencyservice:v0.8.0
+        ports:
+        - name: grpc
+          containerPort: 7000
+        env:
+        - name: PORT
+          value: "7000"
+        - name: DISABLE_PROFILER
+          value: "1"
+        readinessProbe:
+          tcpSocket:
+            port: 7000
+        livenessProbe:
+          tcpSocket:
+            port: 7000
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: currencyservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: currencyservice-edge
+  ports:
+  - name: grpc
+    port: 7000
+    targetPort: 7000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shippingservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: shippingservice-edge
+  template:
+    metadata:
+      labels:
+        app: shippingservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/shippingservice:v0.8.0
+        ports:
+        - containerPort: 50051
+        env:
+        - name: PORT
+          value: "50051"
+        - name: DISABLE_PROFILER
+          value: "1"
+        readinessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 50051
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shippingservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: shippingservice-edge
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: redis-cart-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redis-cart-edge
+  template:
+    metadata:
+      labels:
+        app: redis-cart-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: redis
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: redis:alpine
+        ports:
+        - containerPort: 6379
+        readinessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 6379
+        livenessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 6379
+        volumeMounts:
+        - mountPath: /data
+          name: redis-data
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+      volumes:
+      - name: redis-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cart-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: redis-cart-edge
+  ports:
+  - name: tcp-redis
+    port: 6379
+    targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubernetes.io/egress-bandwidth: 10M
+    kubernetes.io/ingress-bandwidth: 10M
+  name: adservice-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: adservice-edge
+  template:
+    metadata:
+      labels:
+        app: adservice-edge
+    spec:
+      nodeSelector:
+        apps.openyurt.io/nodepool: 'edge-2'
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: habor.production.horsecoder.com/hipster/adservice:v0.8.0
+        ports:
+        - containerPort: 9555
+        env:
+        - name: PORT
+          value: "9555"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 950Mi
+          requests:
+            cpu: 150m
+            memory: 150Mi
+        readinessProbe:
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          tcpSocket:
+            port: 9555
+        livenessProbe:
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          tcpSocket:
+            port: 9555
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adservice-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: adservice-edge
+  ports:
+  - name: grpc
+    port: 9555
+    targetPort: 9555
+# [END gke_release_kubernetes_manifests_microservices_demo]

@@ -1,0 +1,57 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppSet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: queue-master
+spec:
+  selector:
+    matchLabels:
+      app: queue-master
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          app: queue-master
+      spec:
+        template:
+          metadata:
+            labels:
+              app: queue-master
+          spec:
+            containers:
+            - name: server
+              image: weaveworksdemos/queue-master:0.3.1
+              env:
+              - name: JAVA_OPTS
+                value: -Xms64m -Xmx128m -XX:+UseG1GC -Djava.security.egd=file:/dev/urandom -Dspring.zipkin.enabled=false
+              resources:
+                limits:
+                  cpu: 300m
+                  memory: 500Mi
+                requests:
+                  cpu: 100m
+                  memory: 300Mi
+              ports:
+              - containerPort: 80
+            nodeSelector:
+              beta.kubernetes.io/os: linux
+              node-role.kubernetes.io/worker: ""
+  topology:
+    pools:
+    - name: cloud
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - cloud
+      replicas: 1
+    - name: edge
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - edge-2
+      replicas: 0

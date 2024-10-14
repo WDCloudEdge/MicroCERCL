@@ -1,0 +1,336 @@
+adservice_cpu_load_1
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 21:54:40 start create.
+2024-04-11 21:55:40 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 21:57:40 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 21:57:41 finish delete.
+2024-04-11 21:58:41 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_2
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 22:09:41 start create.
+2024-04-11 22:10:41 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 22:12:42 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 22:12:42 finish delete.
+2024-04-11 22:13:42 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_3
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 22:24:42 start create.
+2024-04-11 22:25:42 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 22:27:42 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 22:27:42 finish delete.
+2024-04-11 22:28:42 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_4
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 22:39:42 start create.
+2024-04-11 22:40:42 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 22:42:43 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 22:42:43 finish delete.
+2024-04-11 22:43:43 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_5
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 22:54:43 start create.
+2024-04-11 22:55:43 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 22:57:43 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 22:57:44 finish delete.
+2024-04-11 22:58:44 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_6
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 23:09:44 start create.
+2024-04-11 23:10:44 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 23:12:44 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 23:12:44 finish delete.
+2024-04-11 23:13:44 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_7
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 23:24:44 start create.
+2024-04-11 23:25:44 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 23:27:44 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 23:27:45 finish delete.
+2024-04-11 23:28:45 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_8
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 23:39:46 start create.
+2024-04-11 23:40:46 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 23:42:46 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 23:42:46 finish delete.
+2024-04-11 23:43:46 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_9
+stresschaos.chaos-mesh.org/cpu created
+2024-04-11 23:54:47 start create.
+2024-04-11 23:55:47 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-11 23:57:47 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-11 23:57:47 finish delete.
+2024-04-11 23:58:47 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_cpu_load_10
+stresschaos.chaos-mesh.org/cpu created
+2024-04-12 00:09:48 start create.
+2024-04-12 00:10:48 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 00:12:48 start delete.
+stresschaos.chaos-mesh.org "cpu" deleted
+2024-04-12 00:12:48 finish delete.
+2024-04-12 00:13:48 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_1
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 00:24:48 start create.
+2024-04-12 00:25:48 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 00:27:48 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 00:27:48 finish delete.
+2024-04-12 00:28:48 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_2
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 00:39:49 start create.
+2024-04-12 00:40:49 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 00:42:49 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 00:42:49 finish delete.
+2024-04-12 00:43:49 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_3
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 00:54:49 start create.
+2024-04-12 00:55:49 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 00:57:50 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 00:57:50 finish delete.
+2024-04-12 00:58:50 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_4
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 01:09:51 start create.
+2024-04-12 01:10:51 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 01:12:51 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 01:12:51 finish delete.
+2024-04-12 01:13:51 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_5
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 01:24:52 start create.
+2024-04-12 01:25:52 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 01:27:52 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 01:27:52 finish delete.
+2024-04-12 01:28:52 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_6
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 01:39:53 start create.
+2024-04-12 01:40:53 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 01:42:53 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 01:42:53 finish delete.
+2024-04-12 01:43:53 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_7
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 01:54:53 start create.
+2024-04-12 01:55:53 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 01:57:53 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 01:57:53 finish delete.
+2024-04-12 01:58:53 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_8
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 02:09:53 start create.
+2024-04-12 02:10:53 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 02:12:53 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 02:12:53 finish delete.
+2024-04-12 02:13:53 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_9
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 02:24:53 start create.
+2024-04-12 02:25:53 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 02:27:54 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 02:27:54 finish delete.
+2024-04-12 02:28:54 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_mem_load_10
+stresschaos.chaos-mesh.org/memory-3 created
+2024-04-12 02:39:54 start create.
+2024-04-12 02:40:54 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 02:42:55 start delete.
+stresschaos.chaos-mesh.org "memory-3" deleted
+2024-04-12 02:42:55 finish delete.
+2024-04-12 02:43:55 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_1
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 02:54:56 start create.
+2024-04-12 02:55:56 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 02:57:56 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 02:57:56 finish delete.
+2024-04-12 02:58:56 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_2
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 03:09:57 start create.
+2024-04-12 03:10:57 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 03:12:57 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 03:12:57 finish delete.
+2024-04-12 03:13:57 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_3
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 03:24:58 start create.
+2024-04-12 03:25:58 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 03:27:58 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 03:27:58 finish delete.
+2024-04-12 03:28:58 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_4
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 03:39:58 start create.
+2024-04-12 03:40:58 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 03:42:58 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 03:42:59 finish delete.
+2024-04-12 03:43:59 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_5
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 03:54:59 start create.
+2024-04-12 03:55:59 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 03:57:59 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 03:57:59 finish delete.
+2024-04-12 03:58:59 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_6
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 04:10:00 start create.
+2024-04-12 04:11:00 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 04:13:00 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 04:13:00 finish delete.
+2024-04-12 04:14:00 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_7
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 04:25:00 start create.
+2024-04-12 04:26:00 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 04:28:01 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 04:28:01 finish delete.
+2024-04-12 04:29:01 start scale down 1.
+deployment.apps/adservice scaled
+
+
+adservice_net_latency_8
+networkchaos.chaos-mesh.org/delay-2 created
+2024-04-12 04:40:02 start create.
+2024-04-12 04:41:02 start scale up 1.
+deployment.apps/adservice scaled
+2024-04-12 04:43:02 start delete.
+networkchaos.chaos-mesh.org "delay-2" deleted
+2024-04-12 04:43:02 finish delete.
+2024-04-12 04:44:02 start scale down 1.
+deployment.apps/adservice scaled
+
+

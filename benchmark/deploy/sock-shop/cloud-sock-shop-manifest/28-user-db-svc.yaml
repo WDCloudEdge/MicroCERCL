@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-db
+  labels:
+    tag: db
+  annotations:
+    openyurt.io/topologyKeys: openyurt.io/nodepool
+spec:
+  ports:
+    # the port that this service should serve on
+  - name: sock-shop-port
+    port: 27017
+    targetPort: 27017
+  selector:
+    app: user-db
+

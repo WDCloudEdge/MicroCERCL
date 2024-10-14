@@ -1,0 +1,59 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppSet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: session-db
+spec:
+  selector:
+    matchLabels:
+      app: session-db
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          app: session-db
+      spec:
+        template:
+          metadata:
+            labels:
+              app: session-db
+            annotations:
+              prometheus.io.scrape: "false"
+          spec:
+            containers:
+            - name: server
+              image: redis:alpine
+              ports:
+              - name: redis
+                containerPort: 6379
+              securityContext:
+                capabilities:
+                  drop:
+                    - all
+                  add:
+                    - CHOWN
+                    - SETGID
+                    - SETUID
+                readOnlyRootFilesystem: true
+            nodeSelector:
+              beta.kubernetes.io/os: linux
+              node-role.kubernetes.io/worker: ""
+  topology:
+    pools:
+    - name: cloud
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - cloud
+      replicas: 1
+    - name: edge
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - edge-2
+      replicas: 0

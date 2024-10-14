@@ -1,0 +1,64 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppSet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: user-db
+spec:
+  selector:
+    matchLabels:
+      app: user-db
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          app: user-db
+      spec:
+        template:
+          metadata:
+            labels:
+              app: user-db
+          spec:
+            containers:
+            - name: server
+              image: weaveworksdemos/user-db:0.3.0
+              ports:
+              - name: mongo
+                containerPort: 27017
+              securityContext:
+                capabilities:
+                  drop:
+                    - all
+                  add:
+                    - CHOWN
+                    - SETGID
+                    - SETUID
+                readOnlyRootFilesystem: true
+              volumeMounts:
+              - mountPath: /tmp
+                name: tmp-volume
+            volumes:
+              - name: tmp-volume
+                emptyDir:
+                  medium: Memory
+            nodeSelector:
+              beta.kubernetes.io/os: linux
+              node-role.kubernetes.io/worker: ""
+  topology:
+    pools:
+    - name: cloud
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - cloud
+      replicas: 1
+    - name: edge
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - edge-2
+      replicas: 0

@@ -1,0 +1,17 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cpu
+  namespace: chaos-mesh
+spec:
+  mode: one
+  selector:
+    namespaces:
+      - 'hipster'
+    labelSelectors:
+      'chaosmesh': 'adservice'
+  stressors:
+    cpu:
+      workers: 2
+      load: 100
+  duration: '3m'

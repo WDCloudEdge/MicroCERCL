@@ -1,8 +1,13 @@
 # MicroCERCL
 
+## 基准(benchmark)
+
+我们在云边缘环境中构建了一个混合部署基准，其中包含四个广泛使用的微服务系统。这些系统被混合部署，并集成到一个统一的监控框架中。
+请点击这里查看[Benchmark](benchmark/README.md)详情。
+
 ## 简介
 
-**MicroCERCL**从内核级日志中提取有效内容，优先定位内核级故障根因。此外，**MicroCERCL**构建了异构动态拓扑堆栈，基于指标Metrics数据训练图神经网络模型，从而在不依赖历史数据的情况下准确定位微服务应用程序级的故障根因。
+**MicroCERCL**构建了异构动态拓扑堆栈，在异常检测完成后，基于指标Metrics数据训练图神经网络模型，从而在不依赖历史数据的情况下在云边环境中准确定位微服务的故障根因。
 
 ## 快速开始
 
@@ -101,10 +106,10 @@ McroCERCL/
 │├── README.md
 │├── anomaly_detection.py
 │├── graph.py
-│├── log_parser.py
 │├── main.py
 │├── model.py
 │├── model_aggregate.py
+│├── model_attention.py
 │├── requirements.txt
 │└── util/
 │└── │├── KubernetesClient.py

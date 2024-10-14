@@ -1,0 +1,18 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: delay-2
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - 'cloud-sock-shop'
+    labelSelectors:
+      'app': 'payment'
+      'apps.openyurt.io/pool-name': edge
+  delay:
+    latency: '500ms'
+    correlation: '100'
+    jitter: '0ms'
+  duration: '3m'

@@ -1,0 +1,15 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pv-1
+  namespace: horsecoder-test
+  labels:
+    type: local
+spec:
+  storageClassName: longhorn
+  capacity:
+    storage: 60Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/home/minio/data1"

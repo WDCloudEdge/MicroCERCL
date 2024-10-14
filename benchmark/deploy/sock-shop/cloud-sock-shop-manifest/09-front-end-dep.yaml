@@ -1,0 +1,64 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppSet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: front-end
+spec:
+  selector:
+    matchLabels:
+      app: front-end
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          app: front-end
+      spec:
+        template:
+          metadata:
+            labels:
+              app: front-end
+          spec:
+            containers:
+            - name: server
+              image: weaveworksdemos/front-end:0.3.12
+              resources:
+                limits:
+                  cpu: 300m
+                  memory: 1000Mi
+                requests:
+                  cpu: 100m
+                  memory: 150Mi
+              ports:
+              - containerPort: 8079
+              env:
+              - name: SESSION_REDIS
+                value: "true"
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 10001
+                capabilities:
+                  drop:
+                    - all
+                readOnlyRootFilesystem: true
+            nodeSelector:
+              beta.kubernetes.io/os: linux
+              node-role.kubernetes.io/worker: ""
+  topology:
+    pools:
+    - name: cloud
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - cloud
+      replicas: 1
+    - name: edge
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - edge-2
+      replicas: 0

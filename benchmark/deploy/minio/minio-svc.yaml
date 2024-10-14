@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-svc
+  namespace: horsecoder-minio
+  labels:
+    app: minio
+spec:
+  type: NodePort
+  ports:
+    - name: http-server
+      port: 9000
+      targetPort: 9000
+      nodePort: 31190
+  selector:
+     app: minio

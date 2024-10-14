@@ -1,0 +1,65 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppSet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: rabbitmq
+spec:
+  selector:
+    matchLabels:
+      app: rabbitmq
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          app: rabbitmq
+      spec:
+        template:
+          metadata:
+            labels:
+              app: rabbitmq
+          spec:
+            containers:
+            - name: server
+              image: rabbitmq:3.6.8-management
+              ports:
+              - containerPort: 15672
+                name: management
+              - containerPort: 5672
+                name: rabbitmq
+              securityContext:
+                capabilities:
+                  drop:
+                    - all
+                  add:
+                    - CHOWN
+                    - SETGID
+                    - SETUID
+                    - DAC_OVERRIDE
+                readOnlyRootFilesystem: true
+            - name: rabbitmq-exporter
+              image: kbudde/rabbitmq-exporter
+              ports:
+              - containerPort: 9090
+                name: exporter
+            nodeSelector:
+              beta.kubernetes.io/os: linux
+              node-role.kubernetes.io/worker: ""
+  topology:
+    pools:
+    - name: cloud
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - cloud
+      replicas: 1
+    - name: edge
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - edge-2
+      replicas: 0

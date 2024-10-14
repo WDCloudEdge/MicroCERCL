@@ -1,0 +1,53 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppSet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: catalogue-db
+spec:
+  selector:
+    matchLabels:
+      app: catalogue-db
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          app: catalogue-db
+      spec:
+        template:
+          metadata:
+            labels:
+              app: catalogue-db
+          spec:
+            containers:
+            - name: server
+              image: weaveworksdemos/catalogue-db:0.3.0
+              env:
+                - name: MYSQL_ROOT_PASSWORD
+                  value: fake_password
+                - name: MYSQL_DATABASE
+                  value: socksdb
+              ports:
+              - name: mysql
+                containerPort: 3306
+            nodeSelector:
+              beta.kubernetes.io/os: linux
+              node-role.kubernetes.io/worker: ""
+  topology:
+    pools:
+    - name: cloud
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - cloud
+      replicas: 0
+    - name: edge
+      nodeSelectorTerm:
+        matchExpressions:
+        - key: apps.openyurt.io/nodepool
+          operator: In
+          values:
+          - edge-2
+      replicas: 1
